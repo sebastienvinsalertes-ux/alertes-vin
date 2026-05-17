@@ -1,0 +1,33 @@
+name: 🍷 Alertes Vin
+
+on:
+  schedule:
+    - cron: '0 5,10,17 * * *'
+  workflow_dispatch:
+
+jobs:
+  surveiller-ventes-privees:
+    name: Scan ventes privées
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Récupérer les scripts
+        uses: actions/checkout@v4
+
+      - name: 🐍 Installer Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Installer les dépendances
+        run: pip install requests beautifulsoup4 feedparser
+
+      - name: 🔍 Scanner les ventes privées
+        run: python script_ventes_privees.py
+        env:
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+
+      - name: 📝 Scanner les posts et flux RSS
+        run: python script_instagram_rss.py
+        env:
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}

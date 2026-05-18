@@ -5,6 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import os
 from datetime import datetime
+import unicodedata
 
 GMAIL_EXPEDITEUR = "sebastien.vins.alertes@gmail.com"
 GMAIL_PASSWORD   = os.environ.get("GMAIL_PASSWORD", "")
@@ -36,6 +37,13 @@ DOMAINES = [
     "Roses de Jeanne", "Roumier", "Sauzet",
     "Selosse", "Tino Kuban", "Ulysse Colin",
     "Vincent Dauvissat", "Dauvissat",
+]
+
+MOTS_VENTE_PRIVEE = [
+    "vente privee", "vente exclusive", "offre exclusive",
+    "offre confidentielle", "allocation", "quantites limitees",
+    "stock limite", "disponibilite limitee", "offre speciale",
+    "acces prive", "membres", "arrivage", "primeur", "pre-vente",
 ]
 
 SITES_VENTES_PRIVEES = [
@@ -80,19 +88,20 @@ HEADERS = {
     )
 }
 
+def normaliser(texte):
+    return unicodedata.normalize("NFD", texte).encode("ascii", "ignore").decode().lower()
+
 def envoyer_alerte(detections):
     if not detections:
         return
-    sujet = f"🍷 Alerte Vins — {len(detections)} détection(s) — {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    sujet = f"🍷 Alerte Vente Privée — {len(detections)} détection(s) — {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     corps_html = """
     <html><body>
     <h2 style="color:#722F37;">🍷 Alertes Ventes Privées Vin</h2>
-    <p>Les domaines suivants ont été détectés :</p>
-    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-family:Arial;">
+    <p>Les domaines suivants ont été détectés dans le contexte d'une vente privée :</p>
+    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-family:Arial;width:100%;">
       <tr style="background:#722F37;color:white;">
-        <th>Domaine détecté</th>
-        <th>Site</th>
-        <th>Lien</th>
+        <th>Domaine détecté</th><th>Site</th><th>Mots clés</th><th>Lien</th>
       </tr>
     """
     for d in detections:
@@ -100,13 +109,10 @@ def envoyer_alerte(detections):
       <tr>
         <td><b>{d['domaine']}</b></td>
         <td>{d['site']}</td>
-        <td><a href="{d['url']}">{d['url'][:60]}...</a></td>
+        <td><i>{', '.join(d['mots_trouves'])}</i></td>
+        <td><a href="{d['url']}">{d['url'][:50]}...</a></td>
       </tr>"""
-    corps_html += f"""
-    </table>
-    <p style="color:gray;font-size:12px;">Scan effectué le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</p>
-    </body></html>
-    """
+    corps_html += f"</table><p style='color:gray;font-size:12px;'>Scan effectué le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</p></body></html>"
     msg = MIMEMultipart("alternative")
     msg["Subject"] = sujet
     msg["From"]    = GMAIL_EXPEDITEUR
@@ -120,21 +126,24 @@ def envoyer_alerte(detections):
     except Exception as e:
         print(f"❌ Erreur envoi email : {e}")
 
-def normaliser(texte):
-    import unicodedata
-    return unicodedata.normalize("NFD", texte).encode("ascii", "ignore").decode().lower()
-
 def scraper_site(nom_site, url):
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
-        texte = normaliser(soup.get_text(separator=" "))
-        trouves = []
+        texte_norm = normaliser(soup.get_text(separator=" "))
+        mots_trouves = [m for m in MOTS_VENTE_PRIVEE if m in texte_norm]
+        if not mots_trouves:
+            print(f"   — Pas de contexte vente privée")
+            return []
+        detections = []
         for domaine in DOMAINES:
-            if normaliser(domaine) in texte:
-                trouves.append(domaine)
-        return trouves
+            if normaliser(domaine) in texte_norm:
+                detections.append({
+                    "domaine": domaine, "site": nom_site,
+                    "url": url, "mots_trouves": mots_trouves[:3],
+                })
+        return detections
     except requests.exceptions.Timeout:
         print(f"⏱️  Timeout : {nom_site}")
         return []
@@ -147,23 +156,18 @@ def scraper_site(nom_site, url):
 
 def main():
     print(f"\n{'='*55}")
-    print(f"🍷 SCAN VENTES PRIVÉES VIN — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    print(f"🍷 SCAN VENTES PRIVÉES — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"{'='*55}")
     toutes_detections = []
     for nom_site, url in SITES_VENTES_PRIVEES:
         print(f"🔍 Scan : {nom_site}...")
-        domaines_trouves = scraper_site(nom_site, url)
-        if domaines_trouves:
-            print(f"   ✅ {len(domaines_trouves)} domaine(s) trouvé(s) : {', '.join(domaines_trouves)}")
-            for domaine in domaines_trouves:
-                toutes_detections.append({
-                    "domaine": domaine,
-                    "site":    nom_site,
-                    "url":     url,
-                })
+        detections = scraper_site(nom_site, url)
+        if detections:
+            print(f"   ✅ {len(detections)} domaine(s) trouvé(s)")
+            toutes_detections.extend(detections)
         else:
-            print(f"   — Aucun domaine cible trouvé")
-    print(f"\nRÉSULTAT : {len(toutes_detections)} détection(s) au total\n")
+            print(f"   — Aucun domaine en vente privée")
+    print(f"\nRÉSULTAT : {len(toutes_detections)} détection(s)\n")
     if toutes_detections:
         envoyer_alerte(toutes_detections)
     else:

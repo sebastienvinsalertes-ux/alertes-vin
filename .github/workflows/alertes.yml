@@ -22,10 +22,16 @@ jobs:
       - name: 📦 Installer les dépendances
         run: pip install requests beautifulsoup4 feedparser
 
-      - name: 🔍 Scanner les ventes privées
+      - name: 🔍 Scanner les ventes privées (sites web)
         run: python script_ventes_privees.py
         env:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+
+      - name: 📬 Scanner les emails de ventes privées (Gmail)
+        run: python script_scan_gmail.py
+        env:
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+          GMAIL_SCAN_PASSWORD: ${{ secrets.GMAIL_SCAN_PASSWORD }}
 
       - name: 📝 Scanner les posts et flux RSS
         run: python script_instagram_rss.py

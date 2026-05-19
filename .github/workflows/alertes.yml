@@ -14,25 +14,22 @@ on:
     - cron: '0 17 * * *'    # Sites ventes privées 19h00 Paris
     - cron: '0 7 * * *'     # Cavistes prioritaires 9h00 Paris
     - cron: '0 17 * * *'    # Cavistes prioritaires 19h00 Paris
+    - cron: '0 15 * * *'    # Cavistes France 17h00 Paris
   workflow_dispatch:
 
 jobs:
   scanner-gmail:
     name: 📬 Scan emails Gmail
     runs-on: ubuntu-latest
-
     steps:
       - name: 📥 Récupérer les scripts
         uses: actions/checkout@v4
-
       - name: 🐍 Installer Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: 📦 Installer les dépendances
         run: pip install requests beautifulsoup4 feedparser
-
       - name: 📬 Scanner les emails Gmail
         run: python script_scan_gmail.py
         env:
@@ -42,24 +39,19 @@ jobs:
   scanner-sites:
     name: 🔍 Scan sites ventes privées
     runs-on: ubuntu-latest
-
     steps:
       - name: 📥 Récupérer les scripts
         uses: actions/checkout@v4
-
       - name: 🐍 Installer Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: 📦 Installer les dépendances
         run: pip install requests beautifulsoup4 feedparser
-
       - name: 🔍 Scanner les ventes privées
         run: python script_ventes_privees.py
         env:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
-
       - name: 📝 Scanner les flux RSS
         run: python script_instagram_rss.py
         env:
@@ -68,20 +60,34 @@ jobs:
   scanner-cavistes:
     name: 🏪 Scan cavistes prioritaires
     runs-on: ubuntu-latest
-
     steps:
       - name: 📥 Récupérer les scripts
         uses: actions/checkout@v4
-
       - name: 🐍 Installer Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: 📦 Installer les dépendances
         run: pip install requests beautifulsoup4
-
       - name: 🏪 Scanner les cavistes prioritaires
         run: python script_cavistes_prioritaires.py
         env:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+
+  scanner-france:
+    name: 🌍 Scan cavistes France
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Récupérer les scripts
+        uses: actions/checkout@v4
+      - name: 🐍 Installer Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 📦 Installer les dépendances
+        run: pip install requests
+      - name: 🌍 Scanner tous les cavistes France
+        run: python script_cavistes_france.py
+        env:
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}

@@ -132,18 +132,41 @@ def scraper_site(nom_site, url):
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         texte_norm = normaliser(soup.get_text(separator=" "))
+
+        # Vérifie mots clés vente privée
         mots_trouves = [m for m in MOTS_VENTE_PRIVEE if m in texte_norm]
         if not mots_trouves:
             print(f"   — Pas de contexte vente privée")
             return []
+
+        # Vérifie proximité : domaine à moins de 300 caractères d'un mot clé
         detections = []
         for domaine in DOMAINES:
-            if normaliser(domaine) in texte_norm:
+            domaine_norm = normaliser(domaine)
+            if domaine_norm not in texte_norm:
+                continue
+            # Cherche toutes les positions du domaine
+            pos = 0
+            trouve_proche = False
+            while True:
+                idx = texte_norm.find(domaine_norm, pos)
+                if idx == -1:
+                    break
+                # Extrait fenêtre de 300 caractères autour du domaine
+                fenetre = texte_norm[max(0, idx-300):idx+300]
+                if any(mot in fenetre for mot in mots_trouves):
+                    trouve_proche = True
+                    break
+                pos = idx + 1
+            if trouve_proche:
                 detections.append({
-                    "domaine": domaine, "site": nom_site,
-                    "url": url, "mots_trouves": mots_trouves[:3],
+                    "domaine": domaine,
+                    "site": nom_site,
+                    "url": url,
+                    "mots_trouves": mots_trouves[:3],
                 })
         return detections
+
     except requests.exceptions.Timeout:
         print(f"⏱️  Timeout : {nom_site}")
         return []

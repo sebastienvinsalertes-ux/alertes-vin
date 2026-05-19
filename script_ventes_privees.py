@@ -43,7 +43,7 @@ MOTS_VENTE_PRIVEE = [
     "vente privee", "vente exclusive", "offre exclusive",
     "offre confidentielle", "allocation", "quantites limitees",
     "stock limite", "disponibilite limitee", "offre speciale",
-    "acces prive", "membres", "arrivage", "primeur", "pre-vente",
+    "acces prive", "membres", "arrivage", "pre-vente",
 ]
 
 SITES_VENTES_PRIVEES = [

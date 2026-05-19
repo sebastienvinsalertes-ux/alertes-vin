@@ -85,7 +85,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: 📦 Installer les dépendances
-        run: pip install requests
+        run: pip install requests beautifulsoup4
       - name: 🌍 Scanner tous les cavistes France
         run: python script_cavistes_france.py
         env:

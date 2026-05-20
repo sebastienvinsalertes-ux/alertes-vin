@@ -8,7 +8,7 @@ on:
     - cron: '0 7 * * *'     # 9h00 Paris
     - cron: '0 10 * * *'    # 12h00 Paris
     - cron: '0 16 * * *'    # 18h00 Paris
-    - cron: '0 19 * * *'    # 21h00 Paris
+    - cron: '0 15 * * *'    # 17h00 Paris
   workflow_dispatch:
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
           GMAIL_SCAN_PASSWORD: ${{ secrets.GMAIL_SCAN_PASSWORD }}
 
-  scanner-sites:
+  scanner-ventes:
     name: 🔍 Scan ventes privées
     runs-on: ubuntu-latest
     steps:
@@ -43,7 +43,7 @@ jobs:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
 
   scanner-cavistes:
-    name: 🏪 Scan cavistes prioritaires
+    name: 🍷 Scan cavistes unifié
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,19 +51,6 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install requests beautifulsoup4
-      - run: python script_cavistes_prioritaires.py
-        env:
-          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
-
-  scanner-france:
-    name: 🌍 Scan cavistes France
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install requests beautifulsoup4
-      - run: python script_cavistes_france.py
+      - run: python script_cavistes_unifie.py
         env:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}

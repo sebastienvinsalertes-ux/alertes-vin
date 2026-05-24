@@ -9,13 +9,22 @@ from datetime import datetime, timedelta
 import unicodedata
 import json
 from pathlib import Path
+import re
+
+# ─────────────────────────────────────────────────────
+# CONFIGURATION
+# ─────────────────────────────────────────────────────
 
 GMAIL_SCAN       = "sebastiengarat64@gmail.com"
 GMAIL_SCAN_PWD   = os.environ.get("GMAIL_SCAN_PASSWORD", "")
 GMAIL_EXPEDITEUR = "sebastien.vins.alertes@gmail.com"
 GMAIL_ALERT_PWD  = os.environ.get("GMAIL_PASSWORD", "")
 DESTINATAIRE     = "sebastiengarat64@gmail.com"
-FICHIER_TRAITES  = Path("emails_deja_traites.json")
+FICHIER_TRAITES  = Path("memoire_gmail.json")
+
+# ─────────────────────────────────────────────────────
+# DOMAINES CIBLES — NE PAS MODIFIER
+# ─────────────────────────────────────────────────────
 
 DOMAINES = [
     "Reynaud", "Chateau des Tours", "Emmanuel Reynaud",
@@ -45,6 +54,7 @@ DOMAINES = [
     "Vincent Dauvissat", "Dauvissat",
 ]
 
+# Expéditeurs surveillés (newsletters, ventes privées, cavistes)
 EXPEDITEURS_VENTES = [
     "ventealapropriete", "20h33", "cuvee-privee", "leclos-prive",
     "lesgrappes", "lavinia", "petitescaves", "pepites-en-champagne",
@@ -55,21 +65,34 @@ EXPEDITEURS_VENTES = [
     "lalettredesvignerons", "lagrandecave", "idealwine",
     "1jour1vin", "wineguru", "vinsgrandscrus", "cave-des-grands-vins",
     "terresderouges", "laroutedesblancs", "vistavin",
+    "vinsetmillesimes", "comptoirdesmillesimes", "millesimes",
+    "closdesmillesimes", "cave-spirituelle", "stanislascollin",
+    "wineshop", "oenovinia", "millesima", "vinatis",
+    "vintageandco", "cavissima", "1jour1vin",
 ]
 
-def normaliser(texte):
-    return unicodedata.normalize("NFD", str(texte)).encode("ascii", "ignore").decode().lower()
+# ─────────────────────────────────────────────────────
+# MÉMOIRE PERSISTANTE
+# ─────────────────────────────────────────────────────
 
 def charger_traites():
     if FICHIER_TRAITES.exists():
         with open(FICHIER_TRAITES, "r") as f:
-            return set(json.load(f))
+            data = json.load(f)
+            return set(data.get("traites", []))
     return set()
 
 def sauvegarder_traites(traites):
-    liste = list(traites)[-5000:]
+    liste = list(traites)[-8000:]
     with open(FICHIER_TRAITES, "w") as f:
-        json.dump(liste, f)
+        json.dump({"traites": liste}, f)
+
+# ─────────────────────────────────────────────────────
+# UTILITAIRES
+# ─────────────────────────────────────────────────────
+
+def normaliser(texte):
+    return unicodedata.normalize("NFD", str(texte)).encode("ascii", "ignore").decode().lower()
 
 def decoder_entete(entete):
     try:
@@ -104,83 +127,191 @@ def extraire_corps(msg):
             pass
     return corps
 
-def envoyer_alerte(detections):
-    if not detections:
-        return
-    sujet = f"📬 Alerte Gmail Vins — {len(detections)} email(s) — {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    corps_html = "<html><body><h2 style='color:#722F37;'>📬 Domaines détectés dans vos emails</h2>"
-    for d in detections:
-        corps_html += f"""
-    <div style="border:1px solid #ddd;padding:12px;margin:10px 0;border-radius:6px;font-family:Arial;">
-      <b style="color:#722F37;font-size:16px;">🍷 {', '.join(d['domaines'])}</b><br><br>
-      <b>Objet :</b> {d['sujet']}<br>
-      <b>De :</b> {d['expediteur']}<br>
-      <b>Reçu le :</b> {d['date']}<br>
-    </div>"""
-    corps_html += f"<p style='color:gray;font-size:12px;'>Scan effectué le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</p></body></html>"
+def extraire_liens(corps_html):
+    """Extrait tous les liens http(s) du corps de l'email."""
+    return re.findall(r'https?://[^\s"\'<>]+', corps_html)
+
+def lien_gmail(email_id_str):
+    """Génère un lien direct vers l'email dans Gmail."""
+    # Encode l'ID en hex pour Gmail
+    try:
+        id_int = int(email_id_str)
+        hex_id = format(id_int, 'x').upper()
+        return f"https://mail.google.com/mail/u/0/#inbox/{hex_id}"
+    except:
+        return "https://mail.google.com/mail/u/0/#inbox"
+
+# ─────────────────────────────────────────────────────
+# SCAN GMAIL
+# ─────────────────────────────────────────────────────
+
+def scanner_gmail():
+    detections = []
+    emails_traites = charger_traites()
+    nb_scannes = 0
+
+    try:
+        mail = imaplib.IMAP4_SSL("imap.gmail.com")
+        mail.login(GMAIL_SCAN, GMAIL_SCAN_PWD)
+        mail.select("inbox")
+
+        date_hier = (datetime.now() - timedelta(days=1)).strftime("%d-%b-%Y")
+        _, messages = mail.search(None, f'(SINCE "{date_hier}")')
+        ids = messages[0].split()
+
+        print(f"  📬 {len(ids)} email(s) des dernières 24h")
+
+        for email_id in ids:
+            email_id_str = email_id.decode()
+
+            if email_id_str in emails_traites:
+                continue
+
+            _, msg_data = mail.fetch(email_id, "(RFC822)")
+            msg = email.message_from_bytes(msg_data[0][1])
+
+            expediteur = decoder_entete(msg.get("From", ""))
+            sujet      = decoder_entete(msg.get("Subject", ""))
+            date_email = msg.get("Date", "")
+
+            emails_traites.add(email_id_str)
+
+            # Filtre sur expéditeurs connus
+            if not any(site in normaliser(expediteur) for site in EXPEDITEURS_VENTES):
+                continue
+
+            nb_scannes += 1
+            corps = extraire_corps(msg)
+            texte_norm = normaliser(f"{sujet} {corps}")
+            domaines_trouves = [d for d in DOMAINES if normaliser(d) in texte_norm]
+
+            if not domaines_trouves:
+                continue
+
+            # Liens directs depuis le corps de l'email
+            liens_email = extraire_liens(corps)
+            # Filtre les liens pertinents (produits, vins)
+            liens_pertinents = [
+                l for l in liens_email
+                if any(mot in l.lower() for mot in ["vin", "wine", "cru", "domaine", "produit", "product", "shop", "boutique"])
+            ][:5]
+
+            lien_gmail_direct = lien_gmail(email_id_str)
+
+            print(f"  ✅ {', '.join(domaines_trouves)} — {sujet[:50]}")
+            detections.append({
+                "domaines":         domaines_trouves,
+                "sujet":            sujet,
+                "expediteur":       expediteur,
+                "date":             date_email,
+                "lien_gmail":       lien_gmail_direct,
+                "liens_produits":   liens_pertinents,
+            })
+
+        mail.logout()
+        sauvegarder_traites(emails_traites)
+
+    except Exception as e:
+        print(f"❌ Erreur Gmail : {e}")
+
+    return detections, nb_scannes
+
+# ─────────────────────────────────────────────────────
+# ENVOI EMAIL
+# ─────────────────────────────────────────────────────
+
+def envoyer_email(detections, nb_scannes):
+    heure = datetime.now().strftime("%d/%m/%Y %H:%M")
+    nb = len(detections)
+
+    if nb > 0:
+        sujet = f"📬 {nb} email(s) vin avec domaines cibles — {heure}"
+    else:
+        sujet = f"📬 Scan Gmail — RAS — {heure}"
+
+    corps_html = f"""
+    <html><body style="font-family:Arial,sans-serif;max-width:800px;margin:auto;">
+    <div style="background:#2C5F8A;color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
+      <h2 style="margin:0;">📬 Scan Gmail — {heure}</h2>
+      <p style="margin:6px 0 0;font-size:13px;">{nb_scannes} email(s) d'expéditeurs surveillés analysés</p>
+    </div>
+    """
+
+    if detections:
+        corps_html += """
+    <div style="padding:16px 20px;">
+      <h3 style="color:#2C5F8A;border-bottom:2px solid #2C5F8A;padding-bottom:6px;">
+        🆕 Emails avec domaines cibles détectés
+      </h3>
+    """
+        for d in detections:
+            domaines_str = " · ".join(f"🍷 {dom}" for dom in d["domaines"])
+            liens_html = ""
+            if d["liens_produits"]:
+                liens_html = "<br><b>Liens produits :</b><br>" + "".join(
+                    f'&nbsp;&nbsp;→ <a href="{l}" style="color:#2C5F8A;">{l[:70]}...</a><br>'
+                    for l in d["liens_produits"]
+                )
+            corps_html += f"""
+      <div style="border:1px solid #ddd;padding:14px;margin:10px 0;border-radius:6px;">
+        <div style="font-size:15px;font-weight:bold;color:#2C5F8A;margin-bottom:8px;">
+          {domaines_str}
+        </div>
+        <b>Objet :</b> {d['sujet']}<br>
+        <b>De :</b> {d['expediteur']}<br>
+        <b>Reçu le :</b> {d['date']}<br>
+        {liens_html}
+        <br>
+        <a href="{d['lien_gmail']}"
+           style="display:inline-block;margin-top:8px;padding:8px 16px;
+                  background:#2C5F8A;color:white;border-radius:4px;
+                  text-decoration:none;font-size:13px;">
+          📧 Ouvrir dans Gmail
+        </a>
+      </div>"""
+        corps_html += "</div>"
+    else:
+        corps_html += """
+    <div style="padding:16px 20px;background:#f9f9f9;border-left:4px solid #2C5F8A;margin:16px 0;">
+      <p style="margin:0;color:#555;">✅ Aucun email avec vos domaines cibles dans les dernières 24h.</p>
+    </div>
+    """
+
+    corps_html += f"""
+    <p style="color:#aaa;font-size:11px;padding:0 20px 16px;">
+      Scan effectué le {heure} · memoire_gmail.json mis à jour
+    </p>
+    </body></html>
+    """
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = sujet
     msg["From"]    = GMAIL_EXPEDITEUR
     msg["To"]      = DESTINATAIRE
     msg.attach(MIMEText(corps_html, "html"))
+
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(GMAIL_EXPEDITEUR, GMAIL_ALERT_PWD)
             smtp.sendmail(GMAIL_EXPEDITEUR, DESTINATAIRE, msg.as_string())
-        print(f"✅ Alerte envoyée : {len(detections)} email(s) détecté(s)")
+        print(f"✅ Email envoyé ({nb} détection(s))")
     except Exception as e:
-        print(f"❌ Erreur envoi alerte : {e}")
+        print(f"❌ Erreur envoi email : {e}")
 
-def scanner_gmail():
-    detections = []
-    emails_traites = charger_traites()
-    try:
-        mail = imaplib.IMAP4_SSL("imap.gmail.com")
-        mail.login(GMAIL_SCAN, GMAIL_SCAN_PWD)
-        mail.select("inbox")
-        date_hier = (datetime.now() - timedelta(days=1)).strftime("%d-%b-%Y")
-        _, messages = mail.search(None, f'(SINCE "{date_hier}")')
-        ids = messages[0].split()
-        print(f"  📬 {len(ids)} email(s) des dernières 24h")
-        for email_id in ids:
-            email_id_str = email_id.decode()
-            if email_id_str in emails_traites:
-                continue
-            _, msg_data = mail.fetch(email_id, "(RFC822)")
-            msg = email.message_from_bytes(msg_data[0][1])
-            expediteur = decoder_entete(msg.get("From", ""))
-            sujet      = decoder_entete(msg.get("Subject", ""))
-            date_email = msg.get("Date", "")
-            if not any(site in normaliser(expediteur) for site in EXPEDITEURS_VENTES):
-                emails_traites.add(email_id_str)
-                continue
-            texte_norm = normaliser(f"{sujet} {extraire_corps(msg)}")
-            domaines_trouves = [d for d in DOMAINES if normaliser(d) in texte_norm]
-            emails_traites.add(email_id_str)
-            if domaines_trouves:
-                print(f"   ✅ {', '.join(domaines_trouves)} — {sujet[:50]}")
-                detections.append({
-                    "domaines": domaines_trouves,
-                    "sujet": sujet,
-                    "expediteur": expediteur,
-                    "date": date_email,
-                })
-        mail.logout()
-        sauvegarder_traites(emails_traites)
-    except Exception as e:
-        print(f"❌ Erreur Gmail : {e}")
-    return detections
+# ─────────────────────────────────────────────────────
+# PROGRAMME PRINCIPAL
+# ─────────────────────────────────────────────────────
 
 def main():
     print(f"\n{'='*55}")
     print(f"📬 SCAN GMAIL — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"{'='*55}")
-    detections = scanner_gmail()
+
+    detections, nb_scannes = scanner_gmail()
+
     print(f"\nRÉSULTAT : {len(detections)} email(s) avec domaines cibles\n")
-    if detections:
-        envoyer_alerte(detections)
-    else:
-        print("Aucune alerte à envoyer.")
+
+    envoyer_email(detections, nb_scannes)
 
 if __name__ == "__main__":
     main()

@@ -1,56 +1,63 @@
-name: 🍷 Alertes Vin
+name: Alertes Vins — Sébastien Garat
 
 on:
   schedule:
-    - cron: '45 6 * * *'    # 8h45 Paris
-    - cron: '45 9 * * *'    # 11h45 Paris
-    - cron: '45 15 * * *'   # 17h45 Paris
-    - cron: '0 7 * * *'     # 9h00 Paris
-    - cron: '0 10 * * *'    # 12h00 Paris
-    - cron: '0 16 * * *'    # 18h00 Paris
-    - cron: '0 15 * * *'    # 17h00 Paris
-  workflow_dispatch:
+    # Heures en UTC — France heure d'été (UTC+2)
+    # 10h Paris = 08h00 UTC
+    - cron: '0 8 * * *'
+    # 12h Paris = 10h00 UTC
+    - cron: '0 10 * * *'
+    # 17h Paris = 15h00 UTC
+    - cron: '0 15 * * *'
+    # 19h Paris = 17h00 UTC
+    - cron: '0 17 * * *'
+  workflow_dispatch:  # Permet de lancer manuellement depuis GitHub
 
 jobs:
-  scanner-gmail:
-    name: 📬 Scan emails Gmail
+  scan:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install requests beautifulsoup4 feedparser
-      - run: python script_scan_gmail.py
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scan cavistes
+        env:
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+        run: python script_cavistes_unifie.py
+
+      - name: Scan ventes privées
+        env:
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+        run: python script_ventes_privees.py
+
+      - name: Scan Gmail
         env:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
           GMAIL_SCAN_PASSWORD: ${{ secrets.GMAIL_SCAN_PASSWORD }}
+        run: python script_scan_gmail.py
 
-  scanner-ventes:
-    name: 🔍 Scan ventes privées
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install requests beautifulsoup4 feedparser
-      - run: python script_ventes_privees.py
-        env:
-          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
-      - run: python script_instagram_rss.py
-        env:
-          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+      - name: Sauvegarder mémoire dans le repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add memoire_cavistes.json memoire_ventes_privees.json memoire_gmail.json || true
+          git diff --staged --quiet || git commit -m "🧠 Mise à jour mémoire — $(date '+%d/%m/%Y %H:%M')"
+          git push || true
 
-  scanner-cavistes:
-    name: 🍷 Scan cavistes unifié
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install requests beautifulsoup4
-      - run: python script_cavistes_unifie.py
-        env:
-          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+      # ⚠️ RAPPEL HEURE D'HIVER :
+      # En octobre, passer en UTC+1 → modifier les crons :
+      # 10h Paris hiver = 09h00 UTC → '0 9 * * *'
+      # 12h Paris hiver = 11h00 UTC → '0 11 * * *'
+      # 17h Paris hiver = 16h00 UTC → '0 16 * * *'
+      # 19h Paris hiver = 18h00 UTC → '0 18 * * *'

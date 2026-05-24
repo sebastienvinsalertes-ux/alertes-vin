@@ -17,11 +17,10 @@ import time
 GMAIL_EXPEDITEUR = "sebastien.vins.alertes@gmail.com"
 GMAIL_PASSWORD   = os.environ.get("GMAIL_PASSWORD", "")
 DESTINATAIRE     = "sebastiengarat64@gmail.com"
-FICHIER_MEMOIRE  = Path("cavistes_unifies_detectes.json")
-FICHIER_URLS     = Path("cavistes_unifies_urls.json")
+FICHIER_MEMOIRE  = Path("memoire_cavistes.json")
 
 # ─────────────────────────────────────────────────────
-# 64 DOMAINES CIBLES
+# DOMAINES CIBLES — NE PAS MODIFIER
 # ─────────────────────────────────────────────────────
 
 DOMAINES = [
@@ -53,62 +52,72 @@ DOMAINES = [
 ]
 
 # ─────────────────────────────────────────────────────
-# CAVISTES PRIORITAIRES — scannés à chaque run
-# Liste complète : VIP connus + onglet "Site Web À Scanner"
+# LISTE CAVISTES — extraite du fichier Excel
+# Sources : ⭐ VIP Confirmés + 🔍 Détectés + 🌐 À Scanner
+# Pour ajouter un caviste : ajouter une ligne ici
 # ─────────────────────────────────────────────────────
 
-CAVISTES_PRIORITAIRES = [
-    # ── VIP & Grands spécialistes en ligne ──
-    ("Clos des Millésimes",      "https://www.closdesmillesimes.com"),
-    ("Cave Spirituelle",         "https://www.cave-spirituelle.com"),
-    ("Stanislas Collin",         "https://stanislascollin.fr"),
-    ("Vins et Millésimes",       "https://www.vinsetmillesimes.com"),
-    ("Comptoir des Millésimes",  "https://www.comptoirdesmillesimes.com"),
-    ("La Cave du Marché",        "https://www.lacavedumarche.fr"),
-    ("Millesimes.com",           "https://millesimes.com"),
-    ("Vougeot.vin",              "https://vougeot.vin"),
-    ("Prestige Cellar",          "https://www.prestige-cellar.fr"),
-    ("Sphere Wine",              "https://sphere-wine.com"),
-    ("Caves Carrière",           "https://www.caves-carriere.fr"),
-    ("Cave de Chaz",             "https://cavedechaz.com"),
-    ("Plus de Bulles",           "https://www.plus-de-bulles.com"),
-    ("Vintageandco",             "https://www.vintageandco.com"),
-    ("Les Grandes Caves Paris",  "https://www.lesgrandescaves.fr"),
-    ("Les Zinzins du Vin",       "https://leszinzinsduvin.eu"),
-    ("Mister Wine",              "https://www.mister-wine.fr"),
-    ("Millesima",                "https://www.millesima.fr"),
-    ("Vinatis",                  "https://www.vinatis.com"),
-    ("Vins Grands Crus",         "https://www.vinsgrandscrus.fr"),
-    ("Cave des Grands Vins",     "https://www.cave-des-grands-vins.com"),
-    ("Wineguru",                 "https://www.wineguru.fr"),
-    ("Parcellaire",              "https://www.parcellaire.com"),
-    ("Demain les Vins",          "https://www.demainlesvins.com"),
-    ("Le Carré des Vins",        "https://www.lecarredesvins.com"),
-    ("Mes Bourgognes Beaune",    "https://mesbourgognesbeaune.com"),
-    ("Oenovinia",                "https://www.oenovinia.com"),
-    ("Le Bourguignon",           "https://www.le-bourguignon.fr"),
-    ("Les Caves",                "https://www.les-caves.fr"),
-    ("Chais d'Oeuvre",           "https://www.chaisdoeuvre.fr"),
-    ("Terres de Rouges",         "https://terresderouges.com"),
-    ("La Route des Blancs",      "https://www.laroutedesblancs.com"),
-    ("Cave Pur Jus",             "https://www.cavepurjus.com"),
-    ("La Cave d'Ulysse",         "https://www.caveulysse.com"),
-    ("La Cave de Lill",          "https://www.lacavedelill.fr"),
-    ("Versus Wine",              "https://www.versus.wine"),
-    ("Le Gros Caviste",          "https://legroscaviste.com"),
-    ("Vinum Pro",                "https://vinum.pro"),
-    ("Nouvelle Cave",            "https://nouvellecave.com"),
-    ("Au Millésime",             "https://www.aumillesime.com"),
-    ("La Champagnerie",          "https://www.la-champagnerie.com"),
-    ("75 Centilitres",           "https://www.75-centilitres.fr"),
-    ("Le 520",                   "https://le520.fr"),
-    ("Cavissima",                "https://www.cavissima.com"),
-    ("1Jour1Vin",                "https://www.1jour1vin.com"),
-    ("Wine Shop Biarritz",       "https://www.wineshop-biarritz.fr"),
-    ("Wine Shop Fronsac",        "https://wineshopfronsac.com"),
-    ("Cave Briau",               "https://www.briau.com"),
-    # ── Bordeaux & Gironde ──
+CAVISTES = [
+    # ── ⭐ VIP Confirmés ──
+    ("Caves Amiel",               "https://caves-amiel.fr"),
+    ("Cellier des Docks",         "https://cellierdesdocks.com"),
+    ("Cave Spirituelle",          "https://cave-spirituelle.com"),
+    ("Clos des Millésimes",       "https://closdesmillesimes.com"),
+    ("BGC Vins Rares",            "https://bgcvinsrares.com"),
+    ("Le Temps des Vendanges",    "https://letempsdesvendanges.com"),
+    ("V Marchand de Vins",        "https://vpoint.fr"),
+    ("Mademoiselle Wine",         "https://mademoiselle-wine.com"),
+    ("Le Sang des Vignes",        "https://la-cave-bidart.fr"),
+    ("Badie",                     "https://badie.com"),
+    ("Cave de la Rousselle",      "https://cavedelarousselle.fr"),
+    ("Le Chai Billière",          "https://lechai.fr"),
+    ("La Cour des Vins",          "https://lacourdesvins.fr"),
+    ("Domaine de Lastours",       "https://domaine-de-lastours.fr"),
+    ("Stanislas Collin",          "https://stanislascollin.fr"),
+    ("Comptoir des Millésimes",   "https://comptoirdesmillesimes.com"),
+    ("La Route des Blancs",       "https://laroutedesblancs.com"),
+
+    # ── 🔍 Site + Domaines Détectés ──
+    ("Vins et Millésimes",        "https://vinsetmillesimes.com"),
+    ("Le Carré des Vins",         "https://lecarredesvins.com"),
+    ("Oenovinia",                 "https://oenovinia.com"),
+    ("Vins Grands Crus",          "https://vinsgrandscrus.fr"),
+    ("Mes Bourgognes Beaune",     "https://mesbourgognesbeaune.com"),
+    ("Premium Grands Crus",       "https://premiumgrandscrus.com"),
+    ("Caves Carrière",            "https://caves-carriere.fr"),
+    ("La Cave du Marché",         "https://lacavedumarche.fr"),
+    ("Millesimes.com",            "https://millesimes.com"),
+    ("Petites Caves",             "https://petitescaves.com"),
+    ("iDealwine",                 "https://idealwine.com"),
+    ("Les Zinzins du Vin",        "https://leszinzinsduvin.eu"),
+    ("Cave de Chaz",              "https://cavedechaz.com"),
+    ("Prestige Cellar",           "https://prestige-cellar.fr"),
+    ("Sphere Wine",               "https://sphere-wine.com"),
+    ("Vintageandco",              "https://vintageandco.com"),
+    ("Les Bons Plans du Vin",     "https://lesbonsplansduvin.com"),
+    ("Parcellaire",               "https://parcellaire.com"),
+    ("Demain les Vins",           "https://demainlesvins.com"),
+    ("Terres de Rouges",          "https://terresderouges.com"),
+    ("La Grande Cave",            "https://lagrandecave.fr"),
+    ("Chais d'Oeuvre",            "https://chaisdoeuvre.fr"),
+    ("Vente à la Propriété",      "https://ventealapropriete.com"),
+    ("Les Caves",                 "https://les-caves.fr"),
+    ("Vougeot.vin",               "https://vougeot.vin"),
+    ("Le Gros Caviste",           "https://legroscaviste.com"),
+    ("Philovino",                 "https://philovino.com"),
+    ("Winenot",                   "https://winenot.fr"),
+    ("Cave des Grands Vins",      "https://cave-des-grands-vins.com"),
     ("La Vinothèque de Bordeaux", "https://vinotheque-bordeaux.com"),
+    ("Wine Shop Biarritz",        "https://wineshop-biarritz.fr"),
+    ("Wine Shop Fronsac",         "https://wineshopfronsac.com"),
+    ("Ardoneo",                   "https://vin-bio-ardoneo.com"),
+    ("Domaine Le Cellier",        "https://domainelecellier.fr"),
+    ("Vintage Select",            "https://vintageselect31.fr"),
+    ("Millesima",                 "https://millesima.fr"),
+    ("Cave Pur Jus",              "https://cavepurjus.com"),
+    ("La Cave de Lill",           "https://lacavedelill.fr"),
+
+    # ── 🌐 Site Web À Scanner ──
     ("La Crypte du Vin",          "https://lacrypteduvin.fr"),
     ("L'Intendant",               "https://intendant.com"),
     ("La CUV",                    "https://la-cuv.com"),
@@ -117,39 +126,43 @@ CAVISTES_PRIORITAIRES = [
     ("La Cavisterie",             "https://lacavisterie.fr"),
     ("Le Pied à Terre",           "https://lepiedaterre-cave.com"),
     ("La Maison Gabin",           "https://1.lamaisongabin.com"),
+    ("Cave Briau",                "https://briau.com"),
     ("Amour du Vin",              "https://amourduvin.com"),
     ("La Cave des Darons",        "https://lacavedesdarons.com"),
     ("Vins et Terroir",           "https://vins-et-terroir.com"),
-    # ── Landes & Pays Basque ──
     ("Cave Saint-Jean d'Août",    "https://cave-montdemarsan.fr"),
-    ("Ardoneo",                   "https://vin-bio-ardoneo.com"),
     ("Au Chai Vous",              "https://auchaivous.com"),
     ("Vinothèque de Dax",         "https://vinotheque-dax.fr"),
     ("Plaisirs du Vin Dax",       "https://dax.plaisirsduvin.com"),
     ("La Bouteille 40",           "https://labouteille40.com"),
     ("La Cave 40 Narrosse",       "https://lacave40.fr"),
-    # ── Pau & Béarn ──
     ("Caves Bacqué",              "https://cavesbacque.com"),
     ("Cave du Palais",            "https://cavedupalais.shop"),
     ("Cave Nobel",                "https://cave-nobel.com"),
     ("La Cave de Max",            "https://la-cave-de-max.fr"),
     ("Les 4 Pépins",              "https://les4pepins.com"),
-    # ── Toulouse & Occitanie ──
-    ("Domaine de Lastours",       "https://domaine-de-lastours.fr"),
     ("Des Bouchons",              "https://desbouchons.fr"),
     ("Boutique des Vins",         "https://boutiquedesvins.com"),
     ("Vins d'Une Oreille",        "https://vinsduneoreille.com"),
     ("Chai Vincent",              "https://chai-vincent.fr"),
     ("Le Comptoir des Vins",      "https://lecomptoirdesvins-toulouse.com"),
-    ("Caves Amiel",               "https://caves-amiel.fr"),
     ("In Vino Fredo",             "https://invinofredo.fr"),
     ("Lacrima Vini",              "https://lacrimavini.fr"),
     ("Les 3 Caves Rive Gauche",   "https://les3caves-rivegauche.fr"),
     ("Sourire des Saveurs",       "https://souriredessaveurs.com"),
-    ("Domaine Le Cellier",        "https://domainelecellier.fr"),
     ("Wine Notes",                "https://wine-notes.fr"),
-    ("Vintage Select",            "https://vintageselect31.fr"),
     ("Cave de César",             "https://lacavedecesar.fr"),
+    ("Cavissima",                 "https://cavissima.com"),
+    ("1Jour1Vin",                 "https://1jour1vin.com"),
+    ("Wineguru",                  "https://wineguru.fr"),
+    ("La Champagnerie",           "https://la-champagnerie.com"),
+    ("75 Centilitres",            "https://75-centilitres.fr"),
+    ("Le 520",                    "https://le520.fr"),
+    ("Au Millésime",              "https://aumillesime.com"),
+    ("La Cave d'Ulysse",          "https://caveulysse.com"),
+    ("Versus Wine",               "https://versus.wine"),
+    ("Vinum Pro",                 "https://vinum.pro"),
+    ("Nouvelle Cave",             "https://nouvellecave.com"),
 ]
 
 HEADERS = {
@@ -161,77 +174,20 @@ HEADERS = {
 }
 
 # ─────────────────────────────────────────────────────
-# API SIRENE — Cavistes français avec site web
-# ─────────────────────────────────────────────────────
-
-def recuperer_cavistes_sirene():
-    print("📡 Récupération cavistes via API SIRENE...")
-    urls_sirene = {}
-    page = 1
-    total_avec_site = 0
-
-    while True:
-        try:
-            resp = requests.get(
-                "https://recherche-entreprises.api.gouv.fr/search",
-                params={
-                    "activite_principale": "47.25Z",
-                    "page": page,
-                    "per_page": 25,
-                },
-                timeout=15
-            )
-            data = resp.json()
-            resultats = data.get("results", [])
-
-            if not resultats:
-                break
-
-            for entreprise in resultats:
-                nom = entreprise.get("nom_complet", "")
-                for etab in entreprise.get("matching_etablissements", []):
-                    site = etab.get("site_internet", "")
-                    if site and site.startswith("http"):
-                        urls_sirene[site.rstrip("/")] = nom
-                        total_avec_site += 1
-                        break
-
-            total_pages = data.get("total_pages", 1)
-            if page >= total_pages or page >= 50:
-                break
-            page += 1
-            time.sleep(0.3)
-
-        except Exception as e:
-            print(f"⚠️  Erreur API SIRENE page {page}: {e}")
-            break
-
-    print(f"  ✅ {total_avec_site} cavistes avec site web trouvés via SIRENE")
-    return urls_sirene
-
-# ─────────────────────────────────────────────────────
-# MÉMOIRE
+# MÉMOIRE PERSISTANTE
+# Le fichier memoire_cavistes.json doit être commité
+# dans le repo GitHub pour éviter les doublons d'alertes
 # ─────────────────────────────────────────────────────
 
 def charger_memoire():
     if FICHIER_MEMOIRE.exists():
         with open(FICHIER_MEMOIRE, "r") as f:
             return json.load(f)
-    return {"detectes": [], "derniere_maj_sirene": ""}
+    return {"detectes": []}
 
 def sauvegarder_memoire(memoire):
     with open(FICHIER_MEMOIRE, "w") as f:
         json.dump(memoire, f, ensure_ascii=False, indent=2)
-
-def charger_urls_sirene():
-    if FICHIER_URLS.exists():
-        with open(FICHIER_URLS, "r") as f:
-            return json.load(f)
-    return {}
-
-def sauvegarder_urls_sirene(urls):
-    with open(FICHIER_URLS, "w") as f:
-        json.dump(urls, f, ensure_ascii=False, indent=2)
 
 def est_nouveau(url, domaine, memoire):
     return f"{url}|{domaine}" not in memoire.get("detectes", [])
@@ -240,10 +196,10 @@ def marquer_vu(url, domaine, memoire):
     cle = f"{url}|{domaine}"
     if cle not in memoire["detectes"]:
         memoire["detectes"].append(cle)
-    memoire["detectes"] = memoire["detectes"][-15000:]
+    memoire["detectes"] = memoire["detectes"][-20000:]
 
 # ─────────────────────────────────────────────────────
-# UTILITAIRES
+# SCRAPING
 # ─────────────────────────────────────────────────────
 
 def normaliser(texte):
@@ -251,57 +207,94 @@ def normaliser(texte):
 
 def scraper_site(url):
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=10)
+        resp = requests.get(url, headers=HEADERS, timeout=12)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         texte_norm = normaliser(soup.get_text(separator=" "))
-        return [d for d in DOMAINES if normaliser(d) in texte_norm]
-    except:
-        return []
+        domaines_trouves = [d for d in DOMAINES if normaliser(d) in texte_norm]
+        # Tente de trouver un lien direct vers une page produit pour chaque domaine
+        liens = {}
+        for a in soup.find_all("a", href=True):
+            texte_lien = normaliser(a.get_text())
+            href = a["href"]
+            if not href.startswith("http"):
+                from urllib.parse import urljoin
+                href = urljoin(url, href)
+            for d in domaines_trouves:
+                if normaliser(d) in texte_lien and d not in liens:
+                    liens[d] = href
+        return domaines_trouves, liens
+    except Exception as e:
+        return [], {}
 
 # ─────────────────────────────────────────────────────
 # ENVOI EMAIL
 # ─────────────────────────────────────────────────────
 
-def envoyer_alerte(nouveautes_prio, nouveautes_sirene):
-    total = sum(len(d["domaines"]) for d in nouveautes_prio + nouveautes_sirene)
-    if total == 0:
-        return
+def envoyer_email(nouveautes, total_scannes, total_ok, total_echecs):
+    heure = datetime.now().strftime("%d/%m/%Y %H:%M")
+    nb_nouveautes = sum(len(d["domaines"]) for d in nouveautes)
 
-    sujet = f"🍷 Alerte Cavistes — {total} nouveau(x) domaine(s) — {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    corps_html = "<html><body style='font-family:Arial;'>"
+    if nb_nouveautes > 0:
+        sujet = f"🍷 {nb_nouveautes} nouveau(x) domaine(s) détecté(s) — {heure}"
+    else:
+        sujet = f"🔍 Scan cavistes — RAS — {heure}"
 
-    if nouveautes_prio:
+    # ── En-tête ──
+    corps_html = f"""
+    <html><body style="font-family:Arial,sans-serif;max-width:800px;margin:auto;">
+    <div style="background:#722F37;color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
+      <h2 style="margin:0;">🍷 Scan Cavistes — {heure}</h2>
+      <p style="margin:6px 0 0;font-size:13px;">
+        {total_scannes} sites scannés · {total_ok} accessibles · {total_echecs} inaccessibles
+      </p>
+    </div>
+    """
+
+    # ── Nouveautés ──
+    if nouveautes:
         corps_html += """
-        <h2 style="color:#722F37;">⭐ Cavistes Prioritaires</h2>
-        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;">
-        <tr style="background:#722F37;color:white;"><th>Caviste</th><th>Domaine(s)</th><th>Lien</th></tr>
+    <div style="padding:16px 20px;">
+      <h3 style="color:#722F37;border-bottom:2px solid #722F37;padding-bottom:6px;">
+        🆕 Nouveaux domaines détectés
+      </h3>
+      <table border="1" cellpadding="10" cellspacing="0"
+             style="border-collapse:collapse;width:100%;font-size:14px;">
+        <tr style="background:#722F37;color:white;">
+          <th>Caviste</th>
+          <th>Domaine(s) détecté(s)</th>
+          <th>Lien direct</th>
+        </tr>
         """
-        for d in nouveautes_prio:
+        for d in nouveautes:
+            domaines_html = ""
+            for dom in d["domaines"]:
+                lien_direct = d["liens"].get(dom, "")
+                if lien_direct:
+                    domaines_html += f'🍷 <a href="{lien_direct}" style="color:#722F37;">{dom}</a><br>'
+                else:
+                    domaines_html += f"🍷 {dom}<br>"
             corps_html += f"""
-            <tr>
-                <td><b>{d['nom']}</b></td>
-                <td>{'<br>'.join(f"🍷 {dom}" for dom in d['domaines'])}</td>
-                <td><a href="{d['url']}">{d['url'][:55]}</a></td>
-            </tr>"""
-        corps_html += "</table>"
-
-    if nouveautes_sirene:
+        <tr>
+          <td><b>{d['nom']}</b></td>
+          <td>{domaines_html}</td>
+          <td><a href="{d['url']}" style="color:#722F37;">{d['url']}</a></td>
+        </tr>"""
+        corps_html += "</table></div>"
+    else:
         corps_html += """
-        <h2 style="color:#8B4513;margin-top:20px;">🌍 Cavistes France (SIRENE)</h2>
-        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;">
-        <tr style="background:#8B4513;color:white;"><th>Caviste</th><th>Domaine(s)</th><th>Lien</th></tr>
-        """
-        for d in nouveautes_sirene:
-            corps_html += f"""
-            <tr>
-                <td><b>{d['nom']}</b></td>
-                <td>{'<br>'.join(f"🍷 {dom}" for dom in d['domaines'])}</td>
-                <td><a href="{d['url']}">{d['url'][:55]}</a></td>
-            </tr>"""
-        corps_html += "</table>"
+    <div style="padding:16px 20px;background:#f9f9f9;border-left:4px solid #722F37;margin:16px 0;">
+      <p style="margin:0;color:#555;">✅ Aucune nouveauté lors de ce scan — tous les domaines connus sont déjà en mémoire.</p>
+    </div>
+    """
 
-    corps_html += f"<p style='color:gray;font-size:12px;'>Scan effectué le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</p></body></html>"
+    # ── Pied de page ──
+    corps_html += f"""
+    <p style="color:#aaa;font-size:11px;padding:0 20px 16px;">
+      Prochain scan automatique prévu · memoire_cavistes.json mis à jour
+    </p>
+    </body></html>
+    """
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = sujet
@@ -313,7 +306,7 @@ def envoyer_alerte(nouveautes_prio, nouveautes_sirene):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(GMAIL_EXPEDITEUR, GMAIL_PASSWORD)
             smtp.sendmail(GMAIL_EXPEDITEUR, DESTINATAIRE, msg.as_string())
-        print(f"✅ Email envoyé : {total} nouveau(x) domaine(s)")
+        print(f"✅ Email envoyé ({nb_nouveautes} nouveauté(s))")
     except Exception as e:
         print(f"❌ Erreur envoi email : {e}")
 
@@ -323,73 +316,56 @@ def envoyer_alerte(nouveautes_prio, nouveautes_sirene):
 
 def main():
     print(f"\n{'='*55}")
-    print(f"🍷 SCAN CAVISTES UNIFIÉ — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    print(f"{'='*55}")
-    print(f"  Cavistes prioritaires : {len(CAVISTES_PRIORITAIRES)}")
-    print(f"  Domaines cibles       : {len(DOMAINES)}")
+    print(f"🍷 SCAN CAVISTES — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    print(f"  {len(CAVISTES)} cavistes · {len(DOMAINES)} domaines cibles")
     print(f"{'='*55}\n")
 
     memoire = charger_memoire()
+    nouveautes = []
+    total_ok = 0
+    total_echecs = 0
 
-    # ── Cavistes prioritaires ──
-    print("⭐ SCAN CAVISTES PRIORITAIRES")
-    nouveautes_prio = []
+    for i, (nom, url) in enumerate(CAVISTES):
+        print(f"🔍 [{i+1}/{len(CAVISTES)}] {nom}...")
+        domaines_trouves, liens = scraper_site(url)
 
-    for nom, url in CAVISTES_PRIORITAIRES:
-        print(f"  🔍 {nom}...")
-        domaines = scraper_site(url)
-        nouveaux = [d for d in domaines if est_nouveau(url, d, memoire)]
+        if domaines_trouves is None:
+            total_echecs += 1
+            print(f"   ⚠️  Inaccessible")
+            continue
+
+        total_ok += 1
+
+        if not domaines_trouves:
+            print(f"   — Aucun domaine cible")
+            time.sleep(0.3)
+            continue
+
+        nouveaux = [d for d in domaines_trouves if est_nouveau(url, d, memoire)]
+
         if nouveaux:
-            print(f"     🆕 {', '.join(nouveaux[:4])}")
-            nouveautes_prio.append({"nom": nom, "domaines": nouveaux, "url": url})
+            print(f"   🆕 {', '.join(nouveaux[:5])}")
+            nouveautes.append({
+                "nom":     nom,
+                "url":     url,
+                "domaines": nouveaux,
+                "liens":    liens,
+            })
             for d in nouveaux:
                 marquer_vu(url, d, memoire)
-        time.sleep(0.3)
+        else:
+            print(f"   — {len(domaines_trouves)} domaine(s) déjà connu(s)")
 
-    # ── Cavistes SIRENE ──
-    print(f"\n🌍 SCAN CAVISTES FRANCE (SIRENE)")
-    urls_sirene = charger_urls_sirene()
-
-    # Recharge SIRENE une fois par semaine (lundi)
-    aujourd_hui = datetime.now().strftime("%Y-%m-%d")
-    derniere_maj = memoire.get("derniere_maj_sirene", "")
-    if not urls_sirene or (aujourd_hui > derniere_maj and datetime.now().weekday() == 0):
-        urls_sirene = recuperer_cavistes_sirene()
-        sauvegarder_urls_sirene(urls_sirene)
-        memoire["derniere_maj_sirene"] = aujourd_hui
-
-    # Exclut les URLs déjà dans les prioritaires
-    urls_prio = {url for _, url in CAVISTES_PRIORITAIRES}
-    urls_a_scanner = {url: nom for url, nom in urls_sirene.items() if url not in urls_prio}
-    print(f"   {len(urls_a_scanner)} sites supplémentaires à scanner\n")
-
-    nouveautes_sirene = []
-    for i, (url, nom) in enumerate(urls_a_scanner.items()):
-        if i % 30 == 0 and i > 0:
-            print(f"   Progression : {i}/{len(urls_a_scanner)}")
-        domaines = scraper_site(url)
-        nouveaux = [d for d in domaines if est_nouveau(url, d, memoire)]
-        if nouveaux:
-            print(f"  🆕 {nom} : {', '.join(nouveaux[:4])}")
-            nouveautes_sirene.append({"nom": nom, "domaines": nouveaux, "url": url})
-            for d in nouveaux:
-                marquer_vu(url, d, memoire)
         time.sleep(0.3)
 
     sauvegarder_memoire(memoire)
 
-    # ── Résumé ──
-    total = sum(len(d["domaines"]) for d in nouveautes_prio + nouveautes_sirene)
+    total = sum(len(d["domaines"]) for d in nouveautes)
     print(f"\n{'='*55}")
-    print(f"RÉSULTAT : {total} nouveau(x) domaine(s)")
-    print(f"  ⭐ Prioritaires : {sum(len(d['domaines']) for d in nouveautes_prio)}")
-    print(f"  🌍 SIRENE       : {sum(len(d['domaines']) for d in nouveautes_sirene)}")
+    print(f"RÉSULTAT : {total} nouveau(x) · {total_ok} OK · {total_echecs} échecs")
     print(f"{'='*55}\n")
 
-    if nouveautes_prio or nouveautes_sirene:
-        envoyer_alerte(nouveautes_prio, nouveautes_sirene)
-    else:
-        print("Aucune nouveauté — pas d'alerte envoyée.")
+    envoyer_email(nouveautes, len(CAVISTES), total_ok, total_echecs)
 
 if __name__ == "__main__":
     main()

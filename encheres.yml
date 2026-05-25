@@ -1,0 +1,35 @@
+name: Scan Enchères — Sébastien Garat
+on:
+  schedule:
+    # 9h Paris heure d'été = 07h00 UTC
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  scan-encheres:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Scan enchères
+        env:
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+        run: python script_encheres.py
+      - name: Sauvegarder mémoire enchères
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add memoire_encheres.json || true
+          git diff --staged --quiet || git commit -m "🔨 Mise à jour mémoire enchères — $(date '+%d/%m/%Y %H:%M')"
+          git push || true
+
+  # ⚠️ RAPPEL HEURE D'HIVER :
+  # 9h Paris hiver = 08h00 UTC → '0 8 * * *'

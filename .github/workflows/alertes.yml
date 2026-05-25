@@ -1,5 +1,4 @@
 name: Alertes Vins — Sébastien Garat
-
 on:
   schedule:
     # Heures en UTC — France heure d'été (UTC+2)
@@ -11,42 +10,35 @@ on:
     - cron: '0 15 * * *'
     # 19h Paris = 17h00 UTC
     - cron: '0 17 * * *'
-  workflow_dispatch:  # Permet de lancer manuellement depuis GitHub
+  workflow_dispatch:
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install dependencies
         run: pip install -r requirements.txt
-
       - name: Scan cavistes
         env:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
         run: python script_cavistes_unifie.py
-
       - name: Scan ventes privées
         env:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
         run: python script_ventes_privees.py
-
       - name: Scan Gmail
         env:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
           GMAIL_SCAN_PASSWORD: ${{ secrets.GMAIL_SCAN_PASSWORD }}
         run: python script_scan_gmail.py
-
       - name: Sauvegarder mémoire dans le repo
         run: |
           git config user.name "github-actions[bot]"
@@ -55,9 +47,24 @@ jobs:
           git diff --staged --quiet || git commit -m "🧠 Mise à jour mémoire — $(date '+%d/%m/%Y %H:%M')"
           git push || true
 
-      # ⚠️ RAPPEL HEURE D'HIVER :
-      # En octobre, passer en UTC+1 → modifier les crons :
-      # 10h Paris hiver = 09h00 UTC → '0 9 * * *'
-      # 12h Paris hiver = 11h00 UTC → '0 11 * * *'
-      # 17h Paris hiver = 16h00 UTC → '0 16 * * *'
-      # 19h Paris hiver = 18h00 UTC → '0 18 * * *'
+  # ⚠️ RAPPEL HEURE D'HIVER :
+  # En octobre, passer en UTC+1 → modifier les crons :
+  # 10h Paris hiver = 09h00 UTC → '0 9 * * *'
+  # 12h Paris hiver = 11h00 UTC → '0 11 * * *'
+  # 17h Paris hiver = 16h00 UTC → '0 16 * * *'
+  # 19h Paris hiver = 18h00 UTC → '0 18 * * *'
+
+  keep-alive:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Keep alive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "⏰ keep-alive — $(date '+%d/%m/%Y %H:%M')"
+          git push

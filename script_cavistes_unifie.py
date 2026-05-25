@@ -229,31 +229,22 @@ def scraper_site(url):
 
 # ─────────────────────────────────────────────────────
 # ENVOI EMAIL
+# Envoi par séquences de 30 cavistes max par email
 # ─────────────────────────────────────────────────────
 
-def envoyer_email(nouveautes, total_scannes, total_ok, total_echecs):
-    heure = datetime.now().strftime("%d/%m/%Y %H:%M")
-    nb_nouveautes = sum(len(d["domaines"]) for d in nouveautes)
+BATCH_SIZE = 30  # Nombre max de cavistes par email
 
-    if nb_nouveautes > 0:
-        sujet = f"🍷 {nb_nouveautes} nouveau(x) domaine(s) détecté(s) — {heure}"
-    else:
-        sujet = f"🔍 Scan cavistes — RAS — {heure}"
-
-    # ── En-tête ──
+def construire_corps(batch, num_email, total_emails, heure, total_scannes, total_ok, total_echecs, nb_total_nouveautes):
     corps_html = f"""
     <html><body style="font-family:Arial,sans-serif;max-width:800px;margin:auto;">
     <div style="background:#722F37;color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
       <h2 style="margin:0;">🍷 Scan Cavistes — {heure}</h2>
       <p style="margin:6px 0 0;font-size:13px;">
         {total_scannes} sites scannés · {total_ok} accessibles · {total_echecs} inaccessibles
+        · {nb_total_nouveautes} nouveauté(s) au total
       </p>
+      {"" if total_emails == 1 else f'<p style="margin:4px 0 0;font-size:12px;opacity:0.85;">Email {num_email}/{total_emails}</p>'}
     </div>
-    """
-
-    # ── Nouveautés ──
-    if nouveautes:
-        corps_html += """
     <div style="padding:16px 20px;">
       <h3 style="color:#722F37;border-bottom:2px solid #722F37;padding-bottom:6px;">
         🆕 Nouveaux domaines détectés
@@ -265,50 +256,85 @@ def envoyer_email(nouveautes, total_scannes, total_ok, total_echecs):
           <th>Domaine(s) détecté(s)</th>
           <th>Lien direct</th>
         </tr>
-        """
-        for d in nouveautes:
-            domaines_html = ""
-            for dom in d["domaines"]:
-                lien_direct = d["liens"].get(dom, "")
-                if lien_direct:
-                    domaines_html += f'🍷 <a href="{lien_direct}" style="color:#722F37;">{dom}</a><br>'
-                else:
-                    domaines_html += f"🍷 {dom}<br>"
-            corps_html += f"""
+    """
+    for d in batch:
+        domaines_html = ""
+        for dom in d["domaines"]:
+            lien_direct = d["liens"].get(dom, "")
+            if lien_direct:
+                domaines_html += f'🍷 <a href="{lien_direct}" style="color:#722F37;">{dom}</a><br>'
+            else:
+                domaines_html += f"🍷 {dom}<br>"
+        corps_html += f"""
         <tr>
           <td><b>{d['nom']}</b></td>
           <td>{domaines_html}</td>
           <td><a href="{d['url']}" style="color:#722F37;">{d['url']}</a></td>
         </tr>"""
-        corps_html += "</table></div>"
-    else:
-        corps_html += """
-    <div style="padding:16px 20px;background:#f9f9f9;border-left:4px solid #722F37;margin:16px 0;">
-      <p style="margin:0;color:#555;">✅ Aucune nouveauté lors de ce scan — tous les domaines connus sont déjà en mémoire.</p>
-    </div>
-    """
-
-    # ── Pied de page ──
     corps_html += f"""
+      </table>
+    </div>
     <p style="color:#aaa;font-size:11px;padding:0 20px 16px;">
-      Prochain scan automatique prévu · memoire_cavistes.json mis à jour
+      Scan du {heure} · memoire_cavistes.json mis à jour
     </p>
     </body></html>
     """
+    return corps_html
 
+def envoyer_email(nouveautes, total_scannes, total_ok, total_echecs):
+    heure = datetime.now().strftime("%d/%m/%Y %H:%M")
+    nb_total = sum(len(d["domaines"]) for d in nouveautes)
+
+    # ── Cas RAS : aucune nouveauté ──
+    if not nouveautes:
+        sujet = f"🔍 Scan cavistes — RAS — {heure}"
+        corps_html = f"""
+        <html><body style="font-family:Arial,sans-serif;max-width:800px;margin:auto;">
+        <div style="background:#722F37;color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
+          <h2 style="margin:0;">🍷 Scan Cavistes — {heure}</h2>
+          <p style="margin:6px 0 0;font-size:13px;">
+            {total_scannes} sites scannés · {total_ok} accessibles · {total_echecs} inaccessibles
+          </p>
+        </div>
+        <div style="padding:16px 20px;background:#f9f9f9;border-left:4px solid #722F37;margin:16px 0;">
+          <p style="margin:0;color:#555;">✅ Aucune nouveauté — tous les domaines déjà en mémoire.</p>
+        </div>
+        </body></html>
+        """
+        _envoyer(sujet, corps_html)
+        return
+
+    # ── Découpage en batches de BATCH_SIZE cavistes ──
+    batches = [nouveautes[i:i+BATCH_SIZE] for i in range(0, len(nouveautes), BATCH_SIZE)]
+    total_emails = len(batches)
+
+    for num, batch in enumerate(batches, 1):
+        nb_batch = sum(len(d["domaines"]) for d in batch)
+        if total_emails == 1:
+            sujet = f"🍷 {nb_total} nouveau(x) domaine(s) — {heure}"
+        else:
+            sujet = f"🍷 {nb_batch} nouveauté(s) [{num}/{total_emails}] — {heure}"
+
+        corps_html = construire_corps(
+            batch, num, total_emails, heure,
+            total_scannes, total_ok, total_echecs, nb_total
+        )
+        _envoyer(sujet, corps_html)
+        time.sleep(2)  # Pause entre emails pour éviter le blocage SMTP
+
+def _envoyer(sujet, corps_html):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = sujet
     msg["From"]    = GMAIL_EXPEDITEUR
     msg["To"]      = DESTINATAIRE
     msg.attach(MIMEText(corps_html, "html"))
-
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(GMAIL_EXPEDITEUR, GMAIL_PASSWORD)
             smtp.sendmail(GMAIL_EXPEDITEUR, DESTINATAIRE, msg.as_string())
-        print(f"✅ Email envoyé ({nb_nouveautes} nouveauté(s))")
+        print(f"✅ Email envoyé : {sujet[:60]}")
     except Exception as e:
-        print(f"❌ Erreur envoi email : {e}")
+        print(f"❌ Erreur envoi : {e}")
 
 # ─────────────────────────────────────────────────────
 # PROGRAMME PRINCIPAL

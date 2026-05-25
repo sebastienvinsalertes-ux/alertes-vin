@@ -1,14 +1,9 @@
 name: Alertes Vins — Sébastien Garat
 on:
   schedule:
-    # Heures en UTC — France heure d'été (UTC+2)
-    # 10h Paris = 08h00 UTC
     - cron: '0 8 * * *'
-    # 12h Paris = 10h00 UTC
     - cron: '0 10 * * *'
-    # 17h Paris = 15h00 UTC
     - cron: '0 15 * * *'
-    # 19h Paris = 17h00 UTC
     - cron: '0 17 * * *'
   workflow_dispatch:
 
@@ -43,12 +38,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase || true
           git add memoire_cavistes.json memoire_ventes_privees.json memoire_gmail.json || true
           git diff --staged --quiet || git commit -m "🧠 Mise à jour mémoire — $(date '+%d/%m/%Y %H:%M')"
           git push || true
 
   # ⚠️ RAPPEL HEURE D'HIVER :
-  # En octobre, passer en UTC+1 → modifier les crons :
   # 10h Paris hiver = 09h00 UTC → '0 9 * * *'
   # 12h Paris hiver = 11h00 UTC → '0 11 * * *'
   # 17h Paris hiver = 16h00 UTC → '0 16 * * *'
@@ -56,6 +51,7 @@ jobs:
 
   keep-alive:
     runs-on: ubuntu-latest
+    needs: scan
     if: github.event_name == 'schedule'
     steps:
       - name: Checkout repo
@@ -66,5 +62,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase || true
           git commit --allow-empty -m "⏰ keep-alive — $(date '+%d/%m/%Y %H:%M')"
           git push

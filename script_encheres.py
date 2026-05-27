@@ -96,8 +96,24 @@ def domaines_dans_texte(texte):
     texte_norm = normaliser(texte)
     return [d for d in DOMAINES if normaliser(d) in texte_norm]
 
+def get_soup(url, timeout=15):
+    """Retourne (soup, url_finale) ou (None, None) en cas d'échec."""
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=timeout, allow_redirects=True)
+        if resp.status_code >= 400:
+            print(f"   ⚠️ HTTP {resp.status_code} pour {url}")
+            return None, None
+        texte = resp.text
+        if len(texte.strip()) < 300:
+            print(f"   ⚠️ Page vide (JS requis ?) : {url}")
+            return None, None
+        return BeautifulSoup(texte, "html.parser"), resp.url
+    except Exception as e:
+        print(f"   ⚠️ Erreur réseau : {e}")
+        return None, None
+
 # ─────────────────────────────────────────────────────
-# SCRAPER IDEALWINE ENCHÈRES
+# SCRAPER IDEALWINE
 # ─────────────────────────────────────────────────────
 
 def scraper_idealwine():
@@ -106,17 +122,19 @@ def scraper_idealwine():
     for domaine in DOMAINES:
         try:
             url = f"https://www.idealwine.com/fr/acheter-du-vin?styledvintage={requests.utils.quote(domaine)}&type=auction"
-            resp = requests.get(url, headers=HEADERS, timeout=12)
-            soup = BeautifulSoup(resp.text, "html.parser")
+            soup, _ = get_soup(url)
+            if not soup:
+                time.sleep(0.5)
+                continue
             lots = soup.find_all(class_=re.compile(r'lot|product|wine-item', re.I))
             for lot in lots[:10]:
                 texte = lot.get_text(separator=" ")
                 if not domaines_dans_texte(texte):
                     continue
                 titre = lot.find(class_=re.compile(r'title|name', re.I))
-                prix = lot.find(class_=re.compile(r'price|bid|enchere', re.I))
-                lien = lot.find("a", href=True)
-                href = lien["href"] if lien else ""
+                prix  = lot.find(class_=re.compile(r'price|bid|enchere', re.I))
+                lien  = lot.find("a", href=True)
+                href  = lien["href"] if lien else ""
                 if href and not href.startswith("http"):
                     href = "https://www.idealwine.com" + href
                 resultats.append({
@@ -144,8 +162,10 @@ def scraper_catawiki():
     for domaine in DOMAINES:
         try:
             url = f"https://www.catawiki.com/fr/s?q={requests.utils.quote(domaine)}&c=wine-spirits-lots"
-            resp = requests.get(url, headers=HEADERS, timeout=12)
-            soup = BeautifulSoup(resp.text, "html.parser")
+            soup, _ = get_soup(url)
+            if not soup:
+                time.sleep(0.5)
+                continue
             lots = soup.find_all("article") or soup.find_all(class_=re.compile(r'lot|auction-item|card', re.I))
             for lot in lots[:10]:
                 texte = lot.get_text(separator=" ")
@@ -183,8 +203,10 @@ def scraper_interencheres():
     for domaine in DOMAINES:
         try:
             url = f"https://www.interencheres.com/art-decoration/vin-et-spiritueux/lots?query={requests.utils.quote(domaine)}"
-            resp = requests.get(url, headers=HEADERS, timeout=12)
-            soup = BeautifulSoup(resp.text, "html.parser")
+            soup, _ = get_soup(url)
+            if not soup:
+                time.sleep(0.5)
+                continue
             lots = soup.find_all(class_=re.compile(r'lot|product|item', re.I))
             for lot in lots[:10]:
                 texte = lot.get_text(separator=" ")
@@ -222,8 +244,10 @@ def scraper_ebay():
     for domaine in DOMAINES:
         try:
             url = f"https://www.ebay.fr/sch/i.html?_nkw={requests.utils.quote(domaine)}+vin&_sacat=0&LH_Auction=1"
-            resp = requests.get(url, headers=HEADERS, timeout=12)
-            soup = BeautifulSoup(resp.text, "html.parser")
+            soup, _ = get_soup(url)
+            if not soup:
+                time.sleep(0.5)
+                continue
             lots = soup.find_all("li", class_=re.compile(r's-item', re.I))
             for lot in lots[:10]:
                 texte = lot.get_text(separator=" ")
@@ -250,6 +274,208 @@ def scraper_ebay():
     return resultats
 
 # ─────────────────────────────────────────────────────
+# SCRAPER DROUOT
+# Approche : scraper la page catégorie vins + recherche
+# par domaine sur gazette-drouot.com (plus accessible)
+# ─────────────────────────────────────────────────────
+
+def scraper_drouot():
+    resultats = []
+    print("🔍 Scan Drouot...")
+    for domaine in DOMAINES:
+        try:
+            # gazette-drouot.com est plus scrapable que drouot.com
+            url = f"https://www.gazette-drouot.com/ventes-aux-encheres?q={requests.utils.quote(domaine)}&c=vins-et-alcools"
+            soup, url_finale = get_soup(url)
+            if not soup:
+                time.sleep(0.5)
+                continue
+            # Cherche les blocs de lots/ventes
+            lots = (
+                soup.find_all(class_=re.compile(r'lot|sale|card|auction|vente', re.I)) or
+                soup.find_all("article") or
+                soup.find_all("li", class_=re.compile(r'item|result', re.I))
+            )
+            for lot in lots[:10]:
+                texte = lot.get_text(separator=" ")
+                domaines_trouves = domaines_dans_texte(texte)
+                if not domaines_trouves:
+                    continue
+                titre_el = lot.find(class_=re.compile(r'title|name|heading', re.I)) or lot.find("h2") or lot.find("h3") or lot.find("h4")
+                prix_el  = lot.find(class_=re.compile(r'price|estimate|estimation', re.I))
+                date_el  = lot.find(class_=re.compile(r'date|when|time', re.I))
+                lien_el  = lot.find("a", href=True)
+                href = lien_el["href"] if lien_el else ""
+                if href and not href.startswith("http"):
+                    href = "https://www.gazette-drouot.com" + href
+                resultats.append({
+                    "source":   "Drouot",
+                    "lot_id":   href or texte[:50],
+                    "titre":    titre_el.get_text(strip=True) if titre_el else texte[:100],
+                    "prix":     prix_el.get_text(strip=True) if prix_el else "Voir site",
+                    "date_fin": date_el.get_text(strip=True) if date_el else "",
+                    "lien":     href or url,
+                    "domaines": domaines_trouves,
+                })
+            time.sleep(0.5)
+        except Exception as e:
+            print(f"   ⚠️ Drouot erreur pour {domaine}: {e}")
+    print(f"   → {len(resultats)} lots trouvés")
+    return resultats
+
+# ─────────────────────────────────────────────────────
+# SCRAPER BAGHERA/WINES
+# Approche : scraper la page des ventes en cours
+# et chercher les domaines dans les titres de lots
+# ─────────────────────────────────────────────────────
+
+def scraper_baghera():
+    resultats = []
+    print("🔍 Scan Baghera/Wines...")
+
+    # Page principale des ventes en cours
+    urls_a_scanner = [
+        "https://www.bagherawines.com/fr/ventes/",
+        "https://www.bagherawines.com/fr/lots/",
+    ]
+
+    for url_base in urls_a_scanner:
+        soup, _ = get_soup(url_base)
+        if not soup:
+            continue
+
+        # Cherche les liens vers les lots/ventes individuelles
+        liens_ventes = []
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if not href.startswith("http"):
+                href = "https://www.bagherawines.com" + href
+            if "/lot" in href or "/vente" in href or "/wine-o-clock" in href or "/kipling" in href:
+                if href not in liens_ventes:
+                    liens_ventes.append(href)
+
+        # Scanner chaque page de vente trouvée (max 5)
+        for lien in liens_ventes[:5]:
+            soup_vente, _ = get_soup(lien)
+            if not soup_vente:
+                time.sleep(0.5)
+                continue
+            texte_page = soup_vente.get_text(separator=" ")
+            domaines_trouves = domaines_dans_texte(texte_page)
+            if not domaines_trouves:
+                time.sleep(0.3)
+                continue
+            # Cherche les blocs de lots dans la page
+            lots = (
+                soup_vente.find_all(class_=re.compile(r'lot|wine|item|product', re.I)) or
+                soup_vente.find_all("article") or
+                [soup_vente]  # fallback : page entière
+            )
+            for lot in lots[:20]:
+                texte = lot.get_text(separator=" ")
+                doms = domaines_dans_texte(texte)
+                if not doms:
+                    continue
+                titre_el = lot.find(class_=re.compile(r'title|name', re.I)) or lot.find("h2") or lot.find("h3")
+                prix_el  = lot.find(class_=re.compile(r'price|estimate|estimation', re.I))
+                lot_lien = lot.find("a", href=True)
+                href = lot_lien["href"] if lot_lien else lien
+                if href and not href.startswith("http"):
+                    href = "https://www.bagherawines.com" + href
+                resultats.append({
+                    "source":   "Baghera/Wines",
+                    "lot_id":   href or texte[:50],
+                    "titre":    titre_el.get_text(strip=True) if titre_el else texte[:100],
+                    "prix":     prix_el.get_text(strip=True) if prix_el else "Voir site",
+                    "date_fin": "",
+                    "lien":     href or lien,
+                    "domaines": doms,
+                })
+            time.sleep(0.5)
+
+    print(f"   → {len(resultats)} lots trouvés")
+    return resultats
+
+# ─────────────────────────────────────────────────────
+# SCRAPER AGUTTES
+# Approche : récupérer les ventes vins en cours
+# puis scanner chaque catalogue
+# ─────────────────────────────────────────────────────
+
+def scraper_aguttes():
+    resultats = []
+    print("🔍 Scan Aguttes...")
+
+    # Page des ventes vins en cours
+    url_ventes = "https://www.aguttes.com/fr/ventes/vins-spiritueux"
+    soup, _ = get_soup(url_ventes)
+
+    if not soup:
+        # Fallback : page générale des ventes
+        soup, _ = get_soup("https://www.aguttes.com/fr/ventes")
+
+    liens_catalogues = []
+    if soup:
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if not href.startswith("http"):
+                href = "https://www.aguttes.com" + href
+            # Les catalogues Aguttes ont des URLs type /catalogue/XXXXX ou /vente/XXXXX
+            if re.search(r'/(catalogue|vente)/\d+', href):
+                if href not in liens_catalogues:
+                    liens_catalogues.append(href)
+
+    # Si pas de catalogue trouvé, essayer l'URL directe vins connue
+    if not liens_catalogues:
+        liens_catalogues = [
+            "https://www.aguttes.com/fr/ventes/vins-spiritueux",
+        ]
+
+    for url_catalogue in liens_catalogues[:3]:
+        soup_cat, _ = get_soup(url_catalogue)
+        if not soup_cat:
+            time.sleep(0.5)
+            continue
+
+        texte_page = soup_cat.get_text(separator=" ")
+        if not domaines_dans_texte(texte_page):
+            time.sleep(0.3)
+            continue
+
+        # Cherche les blocs de lots
+        lots = (
+            soup_cat.find_all(class_=re.compile(r'lot|product|item|card', re.I)) or
+            soup_cat.find_all("article") or
+            soup_cat.find_all("li", class_=re.compile(r'lot|item', re.I))
+        )
+
+        for lot in lots[:30]:
+            texte = lot.get_text(separator=" ")
+            doms = domaines_dans_texte(texte)
+            if not doms:
+                continue
+            titre_el = lot.find(class_=re.compile(r'title|name|designation', re.I)) or lot.find("h2") or lot.find("h3") or lot.find("h4")
+            prix_el  = lot.find(class_=re.compile(r'price|estimate|estimation', re.I))
+            date_el  = lot.find(class_=re.compile(r'date|vente', re.I))
+            lien_el  = lot.find("a", href=True)
+            href = lien_el["href"] if lien_el else ""
+            if href and not href.startswith("http"):
+                href = "https://www.aguttes.com" + href
+            resultats.append({
+                "source":   "Aguttes",
+                "lot_id":   href or texte[:50],
+                "titre":    titre_el.get_text(strip=True) if titre_el else texte[:100],
+                "prix":     prix_el.get_text(strip=True) if prix_el else "Voir site",
+                "date_fin": date_el.get_text(strip=True) if date_el else "",
+                "lien":     href or url_catalogue,
+                "domaines": doms,
+            })
+        time.sleep(0.5)
+
+    print(f"   → {len(resultats)} lots trouvés")
+    return resultats
+
+# ─────────────────────────────────────────────────────
 # FILTRAGE NOUVEAUTÉS
 # ─────────────────────────────────────────────────────
 
@@ -271,10 +497,14 @@ COULEURS_SOURCE = {
     "Catawiki":       "#e85f04",
     "Interenchères":  "#2d6a4f",
     "eBay France":    "#e53935",
+    "Drouot":         "#8B0000",
+    "Baghera/Wines":  "#4a0e6e",
+    "Aguttes":        "#1a5276",
 }
 
 def envoyer_email(nouveautes, stats):
     heure = datetime.now().strftime("%d/%m/%Y %H:%M")
+    sources_actives = "iDealwine · Catawiki · Interenchères · eBay · Drouot · Baghera · Aguttes"
 
     if not nouveautes:
         sujet = f"🔨 Enchères — RAS — {heure}"
@@ -282,9 +512,7 @@ def envoyer_email(nouveautes, stats):
         <html><body style="font-family:Arial,sans-serif;max-width:800px;margin:auto;">
         <div style="background:#1a1a2e;color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
           <h2 style="margin:0;">🔨 Scan Enchères — {heure}</h2>
-          <p style="margin:6px 0 0;font-size:13px;">
-            iDealwine · Catawiki · Interenchères · eBay France
-          </p>
+          <p style="margin:6px 0 0;font-size:13px;">{sources_actives}</p>
         </div>
         <div style="padding:16px 20px;background:#f9f9f9;border-left:4px solid #1a1a2e;margin:16px 0;">
           <p style="margin:0;color:#555;">✅ Aucun nouveau lot détecté sur vos domaines cibles.</p>
@@ -294,7 +522,6 @@ def envoyer_email(nouveautes, stats):
     else:
         sujet = f"🔨 {len(nouveautes)} nouveau(x) lot(s) aux enchères — {heure}"
 
-        # Grouper par source
         par_source = {}
         for lot in nouveautes:
             src = lot["source"]
@@ -306,7 +533,7 @@ def envoyer_email(nouveautes, stats):
         <html><body style="font-family:Arial,sans-serif;max-width:800px;margin:auto;">
         <div style="background:#1a1a2e;color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
           <h2 style="margin:0;">🔨 Enchères — {len(nouveautes)} nouveau(x) lot(s)</h2>
-          <p style="margin:6px 0 0;font-size:13px;">{heure}</p>
+          <p style="margin:6px 0 0;font-size:13px;">{heure} · {sources_actives}</p>
         </div>
         """
 
@@ -320,13 +547,8 @@ def envoyer_email(nouveautes, stats):
           <table border="1" cellpadding="10" cellspacing="0"
                  style="border-collapse:collapse;width:100%;font-size:13px;">
             <tr style="background:{couleur};color:white;">
-              <th>Domaine</th>
-              <th>Lot</th>
-              <th>Prix / Estimation</th>
-              <th>Fin</th>
-              <th>Lien</th>
-            </tr>
-            """
+              <th>Domaine</th><th>Lot</th><th>Prix / Estimation</th><th>Fin</th><th>Lien</th>
+            </tr>"""
             for lot in lots:
                 corps_html += f"""
             <tr>
@@ -341,16 +563,13 @@ def envoyer_email(nouveautes, stats):
         corps_html += f"""
         <p style="color:#aaa;font-size:11px;padding:0 20px 16px;">
           Scan du {heure} · memoire_encheres.json mis à jour
-        </p>
-        </body></html>
-        """
+        </p></body></html>"""
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = sujet
     msg["From"]    = GMAIL_EXPEDITEUR
     msg["To"]      = DESTINATAIRE
     msg.attach(MIMEText(corps_html, "html"))
-
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(GMAIL_EXPEDITEUR, GMAIL_PASSWORD)
@@ -366,7 +585,7 @@ def envoyer_email(nouveautes, stats):
 def main():
     print(f"\n{'='*55}")
     print(f"🔨 SCAN ENCHÈRES — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    print(f"  {len(DOMAINES)} domaines cibles · 4 sources")
+    print(f"  {len(DOMAINES)} domaines · 7 sources")
     print(f"{'='*55}\n")
 
     memoire = charger_memoire()
@@ -376,6 +595,9 @@ def main():
     tous_resultats += scraper_catawiki()
     tous_resultats += scraper_interencheres()
     tous_resultats += scraper_ebay()
+    tous_resultats += scraper_drouot()
+    tous_resultats += scraper_baghera()
+    tous_resultats += scraper_aguttes()
 
     nouveautes = filtrer_nouveautes(tous_resultats, memoire)
     sauvegarder_memoire(memoire)

@@ -1,10 +1,6 @@
 name: Scan Enchères — Sébastien Garat
 on:
-  schedule:
-    # 9h Paris heure d'été = 07h00 UTC
-    - cron: '0 7 * * *'
   workflow_dispatch:
-
 jobs:
   scan-encheres:
     runs-on: ubuntu-latest
@@ -27,9 +23,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase || true
           git add memoire_encheres.json || true
           git diff --staged --quiet || git commit -m "🔨 Mise à jour mémoire enchères — $(date '+%d/%m/%Y %H:%M')"
           git push || true
-
-  # ⚠️ RAPPEL HEURE D'HIVER :
-  # 9h Paris hiver = 08h00 UTC → '0 8 * * *'

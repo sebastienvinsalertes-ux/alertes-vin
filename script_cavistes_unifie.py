@@ -52,23 +52,30 @@ DOMAINES = [
 ]
 
 # ─────────────────────────────────────────────────────
-# LISTE CAVISTES — extraite du fichier Excel
-# Sources : ⭐ VIP Confirmés + 🔍 Détectés + 🌐 À Scanner
+# LISTE CAVISTES
+# Mis à jour le 28/05/2026 — suppression de 20 sites
+# problématiques (12 crash, 4 Cloudflare, 2 JS, 1 timeout, 1 erreur)
+# Sites supprimés :
+#   💀 CRASH    : Caves Amiel, Le Temps des Vendanges, Badie,
+#                 Les Bons Plans du Vin, La Grande Cave, Philovino,
+#                 L'Intendant, La Cavisterie, Vins et Terroir,
+#                 Au Chai Vous, La Champagnerie, La Cave d'Ulysse
+#   🚫 CLOUDFLARE: Cave Spirituelle, La CUV, Sourire des Saveurs,
+#                  75 Centilitres
+#   ⚠️ JS VIDE  : La Cave de Max, Le 520
+#   ⏱️ TIMEOUT  : Domaine Le Cellier
+#   ❌ ERREUR   : Cousin & Compagnie
 # Pour ajouter un caviste : ajouter une ligne ici
 # ─────────────────────────────────────────────────────
 
 CAVISTES = [
     # ── ⭐ VIP Confirmés ──
-    ("Caves Amiel",               "https://caves-amiel.fr"),
     ("Cellier des Docks",         "https://cellierdesdocks.com"),
-    ("Cave Spirituelle",          "https://cave-spirituelle.com"),
     ("Clos des Millésimes",       "https://closdesmillesimes.com"),
     ("BGC Vins Rares",            "https://bgcvinsrares.com"),
-    ("Le Temps des Vendanges",    "https://letempsdesvendanges.com"),
     ("V Marchand de Vins",        "https://vpoint.fr"),
     ("Mademoiselle Wine",         "https://mademoiselle-wine.com"),
     ("Le Sang des Vignes",        "https://la-cave-bidart.fr"),
-    ("Badie",                     "https://badie.com"),
     ("Cave de la Rousselle",      "https://cavedelarousselle.fr"),
     ("Le Chai Billière",          "https://lechai.fr"),
     ("La Cour des Vins",          "https://lacourdesvins.fr"),
@@ -94,24 +101,20 @@ CAVISTES = [
     ("Prestige Cellar",           "https://prestige-cellar.fr"),
     ("Sphere Wine",               "https://sphere-wine.com"),
     ("Vintageandco",              "https://vintageandco.com"),
-    ("Les Bons Plans du Vin",     "https://lesbonsplansduvin.com"),
     ("Parcellaire",               "https://parcellaire.com"),
     ("Demain les Vins",           "https://demainlesvins.com"),
     ("Terres de Rouges",          "https://terresderouges.com"),
-    ("La Grande Cave",            "https://lagrandecave.fr"),
     ("Chais d'Oeuvre",            "https://chaisdoeuvre.fr"),
     ("Vente à la Propriété",      "https://ventealapropriete.com"),
     ("Les Caves",                 "https://les-caves.fr"),
     ("Vougeot.vin",               "https://vougeot.vin"),
     ("Le Gros Caviste",           "https://legroscaviste.com"),
-    ("Philovino",                 "https://philovino.com"),
     ("Winenot",                   "https://winenot.fr"),
     ("Cave des Grands Vins",      "https://cave-des-grands-vins.com"),
     ("La Vinothèque de Bordeaux", "https://vinotheque-bordeaux.com"),
     ("Wine Shop Biarritz",        "https://wineshop-biarritz.fr"),
     ("Wine Shop Fronsac",         "https://wineshopfronsac.com"),
     ("Ardoneo",                   "https://vin-bio-ardoneo.com"),
-    ("Domaine Le Cellier",        "https://domainelecellier.fr"),
     ("Vintage Select",            "https://vintageselect31.fr"),
     ("Millesima",                 "https://millesima.fr"),
     ("Cave Pur Jus",              "https://cavepurjus.com"),
@@ -119,9 +122,6 @@ CAVISTES = [
 
     # ── 🌐 Site Web À Scanner ──
     ("La Crypte du Vin",          "https://lacrypteduvin.fr"),
-    ("L'Intendant",               "https://intendant.com"),
-    ("La CUV",                    "https://la-cuv.com"),
-    ("Cousin & Compagnie",        "https://cousin.fr"),
     ("Cave Pourpre",              "https://cavepourpre.com"),
     ("La Cavisterie",             "https://lacavisterie.fr"),
     ("Le Pied à Terre",           "https://lepiedaterre-cave.com"),
@@ -129,7 +129,6 @@ CAVISTES = [
     ("Cave Briau",                "https://briau.com"),
     ("Amour du Vin",              "https://amourduvin.com"),
     ("La Cave des Darons",        "https://lacavedesdarons.com"),
-    ("Vins et Terroir",           "https://vins-et-terroir.com"),
     ("Cave Saint-Jean d'Août",    "https://cave-montdemarsan.fr"),
     ("Au Chai Vous",              "https://auchaivous.com"),
     ("Vinothèque de Dax",         "https://vinotheque-dax.fr"),
@@ -139,7 +138,6 @@ CAVISTES = [
     ("Caves Bacqué",              "https://cavesbacque.com"),
     ("Cave du Palais",            "https://cavedupalais.shop"),
     ("Cave Nobel",                "https://cave-nobel.com"),
-    ("La Cave de Max",            "https://la-cave-de-max.fr"),
     ("Les 4 Pépins",              "https://les4pepins.com"),
     ("Des Bouchons",              "https://desbouchons.fr"),
     ("Boutique des Vins",         "https://boutiquedesvins.com"),
@@ -149,17 +147,12 @@ CAVISTES = [
     ("In Vino Fredo",             "https://invinofredo.fr"),
     ("Lacrima Vini",              "https://lacrimavini.fr"),
     ("Les 3 Caves Rive Gauche",   "https://les3caves-rivegauche.fr"),
-    ("Sourire des Saveurs",       "https://souriredessaveurs.com"),
     ("Wine Notes",                "https://wine-notes.fr"),
     ("Cave de César",             "https://lacavedecesar.fr"),
     ("Cavissima",                 "https://cavissima.com"),
     ("1Jour1Vin",                 "https://1jour1vin.com"),
     ("Wineguru",                  "https://wineguru.fr"),
-    ("La Champagnerie",           "https://la-champagnerie.com"),
-    ("75 Centilitres",            "https://75-centilitres.fr"),
-    ("Le 520",                    "https://le520.fr"),
     ("Au Millésime",              "https://aumillesime.com"),
-    ("La Cave d'Ulysse",          "https://caveulysse.com"),
     ("Versus Wine",               "https://versus.wine"),
     ("Vinum Pro",                 "https://vinum.pro"),
     ("Nouvelle Cave",             "https://nouvellecave.com"),
@@ -175,8 +168,6 @@ HEADERS = {
 
 # ─────────────────────────────────────────────────────
 # MÉMOIRE PERSISTANTE
-# Le fichier memoire_cavistes.json doit être commité
-# dans le repo GitHub pour éviter les doublons d'alertes
 # ─────────────────────────────────────────────────────
 
 def charger_memoire():
@@ -210,7 +201,11 @@ def scraper_site(url):
         resp = requests.get(url, headers=HEADERS, timeout=12)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
-        texte_norm = normaliser(soup.get_text(separator=" "))
+        texte = soup.get_text(separator=" ")
+        # Vérifie que la page n'est pas vide (JS requis)
+        if len(texte.strip()) < 500:
+            return [], {}
+        texte_norm = normaliser(texte)
         domaines_trouves = [d for d in DOMAINES if normaliser(d) in texte_norm]
         # Tente de trouver un lien direct vers une page produit pour chaque domaine
         liens = {}
@@ -224,15 +219,14 @@ def scraper_site(url):
                 if normaliser(d) in texte_lien and d not in liens:
                     liens[d] = href
         return domaines_trouves, liens
-    except Exception as e:
-        return [], {}
+    except Exception:
+        return None, {}
 
 # ─────────────────────────────────────────────────────
 # ENVOI EMAIL
-# Envoi par séquences de 30 cavistes max par email
 # ─────────────────────────────────────────────────────
 
-BATCH_SIZE = 30  # Nombre max de cavistes par email
+BATCH_SIZE = 30
 
 def construire_corps(batch, num_email, total_emails, heure, total_scannes, total_ok, total_echecs, nb_total_nouveautes):
     corps_html = f"""
@@ -285,7 +279,6 @@ def envoyer_email(nouveautes, total_scannes, total_ok, total_echecs):
     heure = datetime.now().strftime("%d/%m/%Y %H:%M")
     nb_total = sum(len(d["domaines"]) for d in nouveautes)
 
-    # ── Cas RAS : aucune nouveauté ──
     if not nouveautes:
         sujet = f"🔍 Scan cavistes — RAS — {heure}"
         corps_html = f"""
@@ -304,7 +297,6 @@ def envoyer_email(nouveautes, total_scannes, total_ok, total_echecs):
         _envoyer(sujet, corps_html)
         return
 
-    # ── Découpage en batches de BATCH_SIZE cavistes ──
     batches = [nouveautes[i:i+BATCH_SIZE] for i in range(0, len(nouveautes), BATCH_SIZE)]
     total_emails = len(batches)
 
@@ -320,7 +312,7 @@ def envoyer_email(nouveautes, total_scannes, total_ok, total_echecs):
             total_scannes, total_ok, total_echecs, nb_total
         )
         _envoyer(sujet, corps_html)
-        time.sleep(2)  # Pause entre emails pour éviter le blocage SMTP
+        time.sleep(2)
 
 def _envoyer(sujet, corps_html):
     msg = MIMEMultipart("alternative")
@@ -358,6 +350,7 @@ def main():
         if domaines_trouves is None:
             total_echecs += 1
             print(f"   ⚠️  Inaccessible")
+            time.sleep(0.3)
             continue
 
         total_ok += 1
@@ -372,8 +365,8 @@ def main():
         if nouveaux:
             print(f"   🆕 {', '.join(nouveaux[:5])}")
             nouveautes.append({
-                "nom":     nom,
-                "url":     url,
+                "nom":      nom,
+                "url":      url,
                 "domaines": nouveaux,
                 "liens":    liens,
             })

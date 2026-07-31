@@ -7,6 +7,8 @@ import os
 from datetime import datetime
 import unicodedata
 import json
+import hashlib
+import re
 from pathlib import Path
 import time
 from urllib.parse import urljoin
@@ -59,6 +61,23 @@ MOTS_VENTE_PRIVEE = [
     "acces prive", "membres", "arrivage", "pre-vente",
 ]
 
+# Une simple mention "vente privée" à proximité d'un domaine ne suffit pas :
+# ça peut être un lien de nav, une page catalogue statique, une mention
+# historique. On exige EN PLUS un signal de nouveauté/urgence réelle
+# (date, compte à rebours, "nouveau") dans la même fenêtre de texte.
+MOTIFS_RECENCE = [
+    re.compile(r"\bjusqu\W?au\b"),
+    re.compile(r"\bdu\s+\d{1,2}\s+\w+\s+au\s+\d{1,2}\s+\w+\b"),
+    re.compile(r"\bnouveaut\w*\b"),
+    re.compile(r"\bnouvel(?:le)?\s+arrivage\b"),
+    re.compile(r"\bcette\s+semaine\b"),
+    re.compile(r"\bce\s+week.?end\b"),
+    re.compile(r"\bencore\s+\d+\s*(?:jours?|heures?|h)\b"),
+    re.compile(r"\bse\s+termine\b"),
+    re.compile(r"\bplus\s+que\s+\d+\b"),
+    re.compile(r"\b\d{1,2}[/\-]\d{1,2}(?:[/\-]\d{2,4})?\b"),
+]
+
 SITES_VENTES_PRIVEES = [
     ("Vente à la Propriété",   "https://www.ventealapropriete.com/fr/ventes-privees"),
     ("20h33",                  "https://www.20h33.com/"),
@@ -78,12 +97,10 @@ SITES_VENTES_PRIVEES = [
     ("Le Carré des Vins",      "https://www.lecarredesvins.com/"),
     ("Oenovinia",              "https://www.oenovinia.com/"),
     ("La Cave du Château",     "https://www.lacaveduchateau.com/ventes-privees.html"),
-    ("Les Bons Plans du Vin",  "https://www.lesbonsplansduvin.com/"),
     ("Mes Bourgognes Beaune",  "https://mesbourgognesbeaune.com/"),
     ("Parcellaire",            "https://www.parcellaire.com/"),
     ("Demain les Vins",        "https://www.demainlesvins.com/"),
     ("La Lettre des Vignerons","https://www.lalettredesvignerons.com/"),
-    ("La Grande Cave",         "https://www.lagrandecave.fr/rayon/ventes-privees"),
     ("iDealwine",              "https://www.idealwine.com/fr/acheter-du-vin"),
     ("1Jour1Vin",              "https://www.1jour1vin.com/fr"),
     ("Wine Guru",              "https://www.wineguru.fr/830-allocations"),
@@ -91,6 +108,9 @@ SITES_VENTES_PRIVEES = [
     ("Cave des Grands Vins",   "https://www.cave-des-grands-vins.com/"),
     ("Terres de Rouges",       "https://terresderouges.com/"),
     ("La Route des Blancs",    "https://www.laroutedesblancs.com/"),
+    # "La Grande Cave" et "Les Bons Plans du Vin" retirés le 31/07/2026 :
+    # confirmés morts (crash SSL) par script_diagnostic.py le 28/05/2026,
+    # jamais nettoyés de cette liste-ci (seule la liste CAVISTES l'avait été).
 ]
 
 HEADERS = {
@@ -115,11 +135,18 @@ def sauvegarder_memoire(memoire):
     with open(FICHIER_MEMOIRE, "w") as f:
         json.dump(memoire, f, ensure_ascii=False, indent=2)
 
-def est_nouveau(url, domaine, memoire):
-    return f"{url}|{domaine}" not in memoire.get("detectes", [])
+def cle_memoire(url, domaine, fenetre):
+    """Empreinte (site + domaine + contenu du passage détecté). Si le passage
+    change vraiment (nouvelle vente, nouvelle date, nouveau prix), la clé
+    change aussi -> ça redéclenche une alerte. Si le texte reste identique
+    (même vieille mention statique), la clé reste la même -> silence."""
+    empreinte = hashlib.sha1(fenetre.encode("utf-8")).hexdigest()[:12]
+    return f"{url}|{domaine}|{empreinte}"
 
-def marquer_vu(url, domaine, memoire):
-    cle = f"{url}|{domaine}"
+def est_nouveau(cle, memoire):
+    return cle not in memoire.get("detectes", [])
+
+def marquer_vu(cle, memoire):
     if cle not in memoire["detectes"]:
         memoire["detectes"].append(cle)
     memoire["detectes"] = memoire["detectes"][-10000:]
@@ -148,21 +175,24 @@ def scraper_site(nom_site, url):
             if domaine_norm not in texte_norm:
                 continue
 
-            # Vérifie proximité (300 caractères)
+            # Vérifie proximité (300 caractères) ET signal de nouveauté réelle
+            # (date, compte à rebours...) dans la même fenêtre — une simple
+            # mention "vente privée" statique ne suffit plus.
             pos = 0
-            trouve_proche = False
+            fenetre_retenue = None
             lien_direct = url
             while True:
                 idx = texte_norm.find(domaine_norm, pos)
                 if idx == -1:
                     break
                 fenetre = texte_norm[max(0, idx - 300):idx + 300]
-                if any(mot in fenetre for mot in mots_trouves):
-                    trouve_proche = True
+                if any(mot in fenetre for mot in mots_trouves) and \
+                   any(motif.search(fenetre) for motif in MOTIFS_RECENCE):
+                    fenetre_retenue = fenetre
                     break
                 pos = idx + 1
 
-            if not trouve_proche:
+            if fenetre_retenue is None:
                 continue
 
             # Cherche un lien direct vers la page produit
@@ -180,6 +210,7 @@ def scraper_site(nom_site, url):
                 "url":          url,
                 "lien_direct":  lien_direct,
                 "mots_trouves": mots_trouves[:3],
+                "fenetre":      fenetre_retenue,
             })
 
         return detections
@@ -282,10 +313,11 @@ def main():
         detections = scraper_site(nom_site, url)
 
         for d in detections:
-            if est_nouveau(d["url"], d["domaine"], memoire):
+            cle = cle_memoire(d["url"], d["domaine"], d["fenetre"])
+            if est_nouveau(cle, memoire):
                 print(f"   🆕 {d['domaine']}")
                 nouveautes.append(d)
-                marquer_vu(d["url"], d["domaine"], memoire)
+                marquer_vu(cle, memoire)
             else:
                 print(f"   — {d['domaine']} déjà connu")
 

@@ -20,11 +20,15 @@ jobs:
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
           GMAIL_SCAN_PASSWORD: ${{ secrets.GMAIL_SCAN_PASSWORD }}
         run: python script_scan_gmail.py
+      - name: Scan ventes privées
+        env:
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+        run: python script_ventes_privees.py
       - name: Sauvegarder mémoire dans le repo
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git pull --rebase || true
-          git add memoire_gmail.json || true
+          git add memoire_gmail.json memoire_ventes_privees.json || true
           git diff --staged --quiet || git commit -m "🧠 Mise à jour mémoire — $(date '+%d/%m/%Y %H:%M')"
           git push || true

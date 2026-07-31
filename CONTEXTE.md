@@ -1,5 +1,50 @@
 # CONTEXTE.md — Alertes Vin
-Dernière mise à jour : 28/05/2026
+Dernière mise à jour : 31/07/2026
+
+---
+
+## Session du 31/07/2026 — corrections critiques (via Claude Code)
+
+### 1. Bug ventes privées corrigé
+`script_ventes_privees.py` déclenchait des alertes sur de simples mentions
+catalogue/statiques (domaine + mot "vente privée" à proximité), pas sur de
+vraies nouvelles ventes. Corrections :
+- Exige désormais un signal de nouveauté réel (date, "jusqu'au", compte à
+  rebours...) EN PLUS du mot-clé, dans la même fenêtre de texte.
+- Clé mémoire basée sur une empreinte du contenu détecté (domaine + hash du
+  passage), plus sur l'URL fixe du site — une vraie nouvelle vente sur un
+  domaine déjà vu redéclenche maintenant correctement une alerte.
+- 2 sites confirmés morts (crash SSL, déjà identifiés le 28/05) retirés :
+  La Grande Cave, Les Bons Plans du Vin.
+- Étape "Scan ventes privées" réactivée dans `alertes.yml`.
+
+### 2. Bug critique découvert : la mémoire n'a JAMAIS été sauvegardée
+Contrairement à ce qu'indiquait cette page ("problème résolu"), les fichiers
+`memoire_*.json` n'existaient **dans aucun commit du repo**, sur aucun run,
+depuis le début. Cause : le `GITHUB_TOKEN` automatique fourni aux workflows
+n'a pas de permission d'écriture par défaut, et aucun bloc `permissions:`
+n'était déclaré dans les .yml — donc chaque `git push` en fin de run échouait
+silencieusement (masqué par `|| true`), même si le job entier s'affichait
+"success" sur GitHub. **Conséquence probable** : le système a pu re-scanner
+et potentiellement re-alerter sans aucune mémoire persistante d'un run à
+l'autre depuis sa création.
+
+Fix : ajout de `permissions: contents: write` dans `alertes.yml` et
+`encheres.yml`. Vérifié en conditions réelles le 31/07/2026 : commit mémoire
+`afa05fe` poussé avec succès sur `main`.
+
+### 3. Point de vigilance restant
+3 sites de la liste ventes privées renvoient une erreur HTTP 403 lors du
+scan (bloquent les requêtes simples, pas de vrai CAPTCHA) : Le Clos Privé,
+Vins Grands Crus, La Route des Blancs. Le script les ignore proprement
+(catch + log), mais ils ne sont donc jamais réellement scannés. À
+approfondir si besoin (rotation de user-agent, ou accepter qu'ils restent
+hors scope pour ce script).
+
+### 4. Accès
+Un token GitHub fine-grained ("Claude Code", repo `alertes-vin` uniquement,
+permissions Contents + Workflows + Actions en Read/write) a été créé pour
+permettre les interventions directes. Expire le 30/08/2026.
 
 ---
 

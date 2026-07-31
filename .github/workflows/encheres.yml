@@ -1,6 +1,8 @@
 name: Scan Enchères — Sébastien Garat
 on:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   scan-encheres:
     runs-on: ubuntu-latest
